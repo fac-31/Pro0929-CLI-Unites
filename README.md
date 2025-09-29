@@ -27,7 +27,6 @@ python -m cli_unites --help
 
 To contribute to this tool, first checkout the code. Then create a new virtual environment using `uv`:
 ```bash
-cd cli-unites
 uv venv
 source .venv/bin/activate
 ```
