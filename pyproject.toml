@@ -1,10 +1,30 @@
 [project]
-name = "pro0929-cli-unites"
-version = "0.1.0"
-description = "Add your description here"
+name = "cli-unites"
+version = "0.1"
+description = "unite your team with query-able project notes"
 readme = "README.md"
-requires-python = ">=3.13"
+authors = [{name = "Anna van Wingerden, Jaz Maslen, Rich Couzens"}]
+license = "Apache-2.0"
+requires-python = ">=3.8"
+classifiers = []
 dependencies = [
+    "click",
     "python-dotenv>=1.1.1",
-    "supabase>=2.20.0",
+    "supabase>=2.20.0"
 ]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+Homepage = "https://github.com/annavanwingerden/cli-unites"
+Changelog = "https://github.com/annavanwingerden/cli-unites/releases"
+Issues = "https://github.com/annavanwingerden/cli-unites/issues"
+CI = "https://github.com/annavanwingerden/cli-unites/actions"
+
+[project.scripts]
+cli-unites = "cli_unites.cli:cli"
+
+[project.optional-dependencies]
+test = ["pytest"]
