@@ -1,0 +1,10 @@
+[project]
+name = "pro0929-cli-unites"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "python-dotenv>=1.1.1",
+    "supabase>=2.20.0",
+]
