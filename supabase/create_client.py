@@ -1,12 +1,8 @@
 from dotenv import load_dotenv
+from supabase import create_client, Client
 import os
-import vecs
 
 load_dotenv()
-
-dbPassword = os.getenv('SUPABASE_PW')
-import os
-from supabase import create_client, Client
 
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")

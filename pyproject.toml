@@ -5,7 +5,7 @@ description = "unite your team with query-able project notes"
 readme = "README.md"
 authors = [{name = "Anna van Wingerden, Jaz Maslen, Rich Couzens"}]
 license = "Apache-2.0"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = []
 dependencies = [
     "click",
