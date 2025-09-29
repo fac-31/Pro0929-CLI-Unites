@@ -15,6 +15,7 @@ def _invoke(runner: CliRunner, command: list[str], config_dir: Path, db_path: Pa
             "CLI_UNITES_CONFIG_DIR": str(config_dir),
             "CLI_UNITES_DB_PATH": str(db_path),
             "CLI_UNITES_DISABLE_GIT": "1",
+            "CLI_UNITES_SKIP_ONBOARDING": "1",
         },
     )
     assert result.exit_code == 0, result.output
@@ -35,6 +36,7 @@ def test_list_shows_added_notes(tmp_path: Path) -> None:
             "CLI_UNITES_CONFIG_DIR": str(config_dir),
             "CLI_UNITES_DB_PATH": str(db_path),
             "CLI_UNITES_DISABLE_GIT": "1",
+            "CLI_UNITES_SKIP_ONBOARDING": "1",
         },
     )
 
@@ -51,6 +53,7 @@ def test_list_shows_added_notes(tmp_path: Path) -> None:
             "CLI_UNITES_CONFIG_DIR": str(config_dir),
             "CLI_UNITES_DB_PATH": str(db_path),
             "CLI_UNITES_DISABLE_GIT": "1",
+            "CLI_UNITES_SKIP_ONBOARDING": "1",
         },
     )
 

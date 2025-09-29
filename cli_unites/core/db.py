@@ -44,11 +44,20 @@ class Database:
                 created_at TEXT NOT NULL,
                 git_commit TEXT,
                 git_branch TEXT,
-                project_path TEXT
+                project_path TEXT,
+                team_id TEXT
             )
-            """
+        """
         )
         self.conn.commit()
+        self._ensure_column("team_id", "TEXT")
+
+    def _ensure_column(self, column: str, definition: str) -> None:
+        cursor = self.conn.execute("PRAGMA table_info(notes)")
+        existing = {row[1] for row in cursor.fetchall()}
+        if column not in existing:
+            self.conn.execute(f"ALTER TABLE notes ADD COLUMN {column} {definition}")
+            self.conn.commit()
 
     def add_note(
         self,
@@ -58,34 +67,45 @@ class Database:
         git_commit: Optional[str] = None,
         git_branch: Optional[str] = None,
         project_path: Optional[str] = None,
+        team_id: Optional[str] = None,
     ) -> str:
         note_id = str(uuid4())
         tag_string = ",".join(sorted({t.strip() for t in tags if t.strip()})) if tags else None
         self.conn.execute(
             """
-            INSERT INTO notes (id, title, body, tags, created_at, git_commit, git_branch, project_path)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                note_id,
-                title,
-                body,
-                tag_string,
-                datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                git_commit,
-                git_branch,
-                project_path,
-            ),
+            INSERT INTO notes (id, title, body, tags, created_at, git_commit, git_branch, project_path, team_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            note_id,
+            title,
+            body,
+            tag_string,
+            datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            git_commit,
+            git_branch,
+            project_path,
+            team_id,
+        ),
         )
         self.conn.commit()
         return note_id
 
-    def list_notes(self, limit: Optional[int] = None, tag: Optional[str] = None) -> List[Dict[str, str]]:
+    def list_notes(
+        self,
+        limit: Optional[int] = None,
+        tag: Optional[str] = None,
+        team_id: Optional[str] = None,
+    ) -> List[Dict[str, str]]:
         sql = "SELECT * FROM notes"
         params: List[object] = []
         if tag:
             sql += " WHERE tags LIKE ?"
             params.append(f"%{tag}%")
+        if team_id:
+            sql += " AND" if "WHERE" in sql else " WHERE"
+            sql += " team_id = ?"
+            params.append(team_id)
         sql += " ORDER BY datetime(created_at) DESC"
         if limit:
             sql += " LIMIT ?"
@@ -98,15 +118,20 @@ class Database:
         row = cursor.fetchone()
         return dict(row) if row else None
 
-    def search_notes(self, query: str) -> List[Dict[str, str]]:
+    def search_notes(self, query: str, team_id: Optional[str] = None) -> List[Dict[str, str]]:
         pattern = f"%{query}%"
+        params: List[object] = [pattern, pattern, pattern]
+        team_clause = ""
+        if team_id:
+            team_clause = " AND team_id = ?"
+            params.append(team_id)
         cursor = self.conn.execute(
-            """
+            f"""
             SELECT * FROM notes
-            WHERE title LIKE ? OR body LIKE ? OR IFNULL(tags, '') LIKE ?
+            WHERE (title LIKE ? OR body LIKE ? OR IFNULL(tags, '') LIKE ?){team_clause}
             ORDER BY datetime(created_at) DESC
             """,
-            (pattern, pattern, pattern),
+            params,
         )
         return [dict(row) for row in cursor.fetchall()]
 

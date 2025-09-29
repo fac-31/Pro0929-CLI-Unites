@@ -19,6 +19,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "team_id": None,
     "supabase_url": None,
     "supabase_key": None,
+    "team_history": [],
+    "first_run_completed": False,
 }
 
 
@@ -62,6 +64,12 @@ class ConfigManager:
 
     def set(self, key: str, value: Any) -> None:
         self._config[key] = value
+        if key == "team_id" and value:
+            history = list(self._config.get("team_history") or [])
+            if value in history:
+                history.remove(value)
+            history.insert(0, value)
+            self._config["team_history"] = history[:5]
         self.save()
 
     def update(self, updates: Dict[str, Any]) -> None:

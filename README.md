@@ -9,7 +9,7 @@ uv venv
 source .venv/bin/activate
 ```
 Now install the dependencies and test dependencies:
-```bash
+```bashn
 uv pip install -e '.[test]'
 ```
 To run the tests:

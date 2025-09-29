@@ -20,6 +20,7 @@ def test_add_note_writes_to_database(tmp_path: Path) -> None:
             "CLI_UNITES_CONFIG_DIR": str(config_dir),
             "CLI_UNITES_DB_PATH": str(db_path),
             "CLI_UNITES_DISABLE_GIT": "1",
+            "CLI_UNITES_SKIP_ONBOARDING": "1",
         },
     )
 
@@ -49,6 +50,7 @@ def test_add_requires_content_without_allow_empty(tmp_path: Path) -> None:
             "CLI_UNITES_CONFIG_DIR": str(config_dir),
             "CLI_UNITES_DB_PATH": str(db_path),
             "CLI_UNITES_DISABLE_GIT": "1",
+            "CLI_UNITES_SKIP_ONBOARDING": "1",
         },
     )
 
@@ -68,6 +70,7 @@ def test_add_allow_empty_succeeds(tmp_path: Path) -> None:
             "CLI_UNITES_CONFIG_DIR": str(config_dir),
             "CLI_UNITES_DB_PATH": str(db_path),
             "CLI_UNITES_DISABLE_GIT": "1",
+            "CLI_UNITES_SKIP_ONBOARDING": "1",
         },
     )
 

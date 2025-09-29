@@ -23,7 +23,10 @@ def test_auth_updates_configuration(tmp_path: Path) -> None:
             "--supabase-url",
             "https://example.supabase.co",
         ],
-        env={"CLI_UNITES_CONFIG_DIR": str(config_dir)},
+        env={
+            "CLI_UNITES_CONFIG_DIR": str(config_dir),
+            "CLI_UNITES_SKIP_ONBOARDING": "1",
+        },
     )
     assert result.exit_code == 0, result.output
 
@@ -36,7 +39,10 @@ def test_auth_updates_configuration(tmp_path: Path) -> None:
     show = runner.invoke(
         cli,
         ["auth", "--show"],
-        env={"CLI_UNITES_CONFIG_DIR": str(config_dir)},
+        env={
+            "CLI_UNITES_CONFIG_DIR": str(config_dir),
+            "CLI_UNITES_SKIP_ONBOARDING": "1",
+        },
     )
     assert show.exit_code == 0
     assert "team-123" in show.output
