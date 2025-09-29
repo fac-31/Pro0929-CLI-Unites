@@ -16,13 +16,16 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project.urls]
-Homepage = "https://github.com/annavanwingerden/cli-unites"
-Changelog = "https://github.com/annavanwingerden/cli-unites/releases"
-Issues = "https://github.com/annavanwingerden/cli-unites/issues"
-CI = "https://github.com/annavanwingerden/cli-unites/actions"
+Homepage = "https://github.com/fac-31/Pro0929-CLI-Unites"
+Changelog = "https://github.com/fac-31/Pro0929-CLI-Unites/releases"
+Issues = "https://github.com/fac-31/Pro0929-CLI-Unites/issues"
+CI = "https://github.com/fac-31/Pro0929-CLI-Unites/actions"
 
 [project.scripts]
 cli-unites = "cli_unites.cli:cli"
 
 [project.optional-dependencies]
 test = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["cli_unites*"]
