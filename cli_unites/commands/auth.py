@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import click
+from rich.pretty import Pretty
 
+from ..core import console, print_success, print_warning
 from ..core.config import ConfigManager
 
 
@@ -32,9 +34,11 @@ def auth(
 
     if updates:
         manager.update(updates)
-        click.echo("Updated authentication configuration.")
+        print_success("Updated authentication configuration.")
 
     if show or not updates:
         config = manager.as_dict()
         sanitized = {**config, "supabase_key": "***" if config.get("supabase_key") else None}
-        click.echo(sanitized)
+        if sanitized.get("auth_token") is None:
+            print_warning("No authentication details stored.")
+        console.print(Pretty(sanitized, indent_guides=True))

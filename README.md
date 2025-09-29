@@ -16,3 +16,8 @@ To run the tests:
 ```bash
 'python -m pytest'
 ```
+
+If you're working and need to re-sync dependencies etc - type 'uv sync'
+
+To see  options, run notes --help
+

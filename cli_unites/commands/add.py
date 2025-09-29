@@ -5,6 +5,7 @@ from typing import Iterable
 
 import click
 
+from ..core import print_success, render_note_panel, console
 from ..core.db import get_connection
 from ..core.git import get_git_context
 from ..models.note import Note
@@ -33,6 +34,6 @@ def add(title: str, body: str | None, tags: Iterable[str]) -> None:
         stored = db.get_note(note_id)
     note = Note.from_row(stored) if stored else None
 
-    click.echo(f"Saved note {note_id} for {note.title if note else title}.")
+    print_success(f"Saved note {note_id} for {note.title if note else title}.")
     if note is not None:
-        click.echo(note.to_cli_output())
+        console.print(render_note_panel(note))
