@@ -14,12 +14,23 @@ from ..models.note import Note
 @click.command(name="add")
 @click.argument("title")
 @click.option("--body", "body", help="Body for the note. Read from stdin when omitted.")
+@click.option("--allow-empty", is_flag=True, help="Permit saving an empty note body.")
 @click.option("-t", "--tag", "tags", multiple=True, help="Attach one or more tags to the note.")
-def add(title: str, body: str | None, tags: Iterable[str]) -> None:
+def add(title: str, body: str | None, allow_empty: bool, tags: Iterable[str]) -> None:
     """Add a note to the local knowledge base."""
-    content = body or sys.stdin.read().strip()
-    if not content:
-        raise click.UsageError("Provide note content via --body or STDIN.")
+    content: str
+    if body is not None:
+        content = body
+    elif sys.stdin.isatty():
+        # No body flag and no piped stdin – avoid waiting on user input.
+        content = ""
+    else:
+        content = sys.stdin.read().strip()
+
+    if not content and not allow_empty:
+        raise click.UsageError(
+            "No note content provided. Use --body, pipe text into the command, or pass --allow-empty."
+        )
 
     git_context = get_git_context()
     with get_connection() as db:
