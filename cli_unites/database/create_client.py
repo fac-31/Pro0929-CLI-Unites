@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 from supabase import create_client, Client
+from supabase.client import ClientOptions
 import psycopg2
 import os
 
@@ -10,4 +11,12 @@ url: str = os.getenv("SUPABASE_URL")
 key: str = os.getenv("SUPABASE_KEY")
 
 # creating supabase client
-supabase: Client = create_client(url, key)
+supabase: Client = create_client(
+    url,
+    key,
+    options=ClientOptions(
+        postgrest_client_timeout=10,
+        storage_client_timeout=10,
+        schema="public",
+    )
+)
