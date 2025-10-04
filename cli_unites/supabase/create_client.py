@@ -11,11 +11,3 @@ key: str = os.getenv("SUPABASE_KEY")
 
 # creating supabase client
 supabase: Client = create_client(url, key)
-
-# testing connection
-try:
-    # Try to get auth session (doesn't require tables)
-    response = supabase.auth.get_session()
-    print("Connected to Supabase!")
-except Exception as e:
-    print(f"Connection failed: {e}")

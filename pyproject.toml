@@ -9,8 +9,9 @@ requires-python = ">=3.9"
 classifiers = []
 dependencies = [
     "click",
+    "pytest>=8.4.2",
     "python-dotenv>=1.1.1",
-    "supabase>=2.20.0"
+    "supabase>=2.20.0",
 ]
 
 [build-system]
@@ -24,7 +25,7 @@ Issues = "https://github.com/annavanwingerden/cli-unites/issues"
 CI = "https://github.com/annavanwingerden/cli-unites/actions"
 
 [project.scripts]
-cli-unites = "cli_unites.cli:cli"
+notes = "cli_unites.cli:cli"
 
 [project.optional-dependencies]
 test = ["pytest"]
