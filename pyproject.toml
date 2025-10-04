@@ -31,3 +31,9 @@ notes = "cli_unites.cli:cli"
 
 [project.optional-dependencies]
 test = ["pytest"]
+
+[tool.pytest.ini_options]
+#this filters out supabase deprecation warnings for conecting the the client
+  filterwarnings = [
+      "ignore::DeprecationWarning:supabase.*",
+  ]
