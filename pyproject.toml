@@ -28,5 +28,6 @@ CI = "https://github.com/annavanwingerden/cli-unites/actions"
 [project.scripts]
 notes = "cli_unites.cli:cli"
 
+
 [project.optional-dependencies]
 test = ["pytest"]
