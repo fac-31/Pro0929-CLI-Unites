@@ -9,10 +9,14 @@ requires-python = ">=3.9"
 classifiers = []
 dependencies = [
     "click",
+<<<<<<< HEAD
     "psycopg2-binary>=2.9.10",
     "pytest>=8.4.2",
     "python-dotenv>=1.1.1",
     "supabase>=2.20.0",
+=======
+    "rich"
+>>>>>>> main
 ]
 
 [build-system]
@@ -20,20 +24,28 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project.urls]
-Homepage = "https://github.com/annavanwingerden/cli-unites"
-Changelog = "https://github.com/annavanwingerden/cli-unites/releases"
-Issues = "https://github.com/annavanwingerden/cli-unites/issues"
-CI = "https://github.com/annavanwingerden/cli-unites/actions"
+Homepage = "https://github.com/fac-31/Pro0929-CLI-Unites"
+Changelog = "https://github.com/fac-31/Pro0929-CLI-Unites/releases"
+Issues = "https://github.com/fac-31/Pro0929-CLI-Unites/issues"
+CI = "https://github.com/fac-31/Pro0929-CLI-Unites/actions"
 
 [project.scripts]
 notes = "cli_unites.cli:cli"
+<<<<<<< HEAD
 
+=======
+>>>>>>> main
 
 [project.optional-dependencies]
 test = ["pytest"]
 
+<<<<<<< HEAD
 [tool.pytest.ini_options]
 #this filters out supabase deprecation warnings for conecting the the client
   filterwarnings = [
       "ignore::DeprecationWarning:supabase.*",
   ]
+=======
+[tool.setuptools.packages.find]
+include = ["cli_unites*"]
+>>>>>>> main

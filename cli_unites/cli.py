@@ -1,21 +1,15 @@
+"""CLI entrypoint for cli-unites."""
+from __future__ import annotations
+
 import click
+
+from .commands import register
 
 
 @click.group()
 @click.version_option()
-def cli():
-    "unite your team with query-able project notes"
+def cli() -> None:
+    "Unite your team with query-able project notes."
 
 
-@cli.command(name="command")
-@click.argument(
-    "example"
-)
-@click.option(
-    "-o",
-    "--option",
-    help="An example option",
-)
-def first_command(example, option):
-    "Command description goes here"
-    click.echo("Here is some output")
+register(cli)
