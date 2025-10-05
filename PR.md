@@ -55,3 +55,103 @@ Created database infrastructure:
 Added Supabase temp/config files in `cli_unites/database/supabase/.temp/`:
 - Project reference, CLI version, Postgres version, GoTrue version, REST version, pooler URL
 - Current branch tracking
+
+## Project Architecture
+
+```
+CLI-Unites/
+├── pyproject.toml              # Project configuration & dependencies
+├── Makefile                    # Dev commands (test, seed, reset, push)
+├── .env                        # Environment variables (DB credentials)
+├── uv.lock                     # Locked dependencies
+│
+└── cli_unites/                 # Main package
+    ├── __init__.py
+    ├── __main__.py
+    ├── cli.py                  # CLI entry point
+    │
+    ├── commands/               # CLI command implementations
+    │   ├── __init__.py
+    │   ├── add.py             # Add notes command
+    │   ├── auth.py            # Authentication command
+    │   ├── list.py            # List notes command
+    │   ├── search.py          # Search notes command
+    │   └── team.py            # Team management command
+    │
+    ├── core/                   # Core business logic
+    │   ├── __init__.py
+    │   ├── config.py          # Configuration management
+    │   ├── db.py              # Database operations
+    │   ├── embeddings.py      # Text embedding utilities
+    │   ├── git.py             # Git integration
+    │   ├── output.py          # Output formatting
+    │   └── supabase.py        # Supabase integration layer
+    │
+    ├── database/               # Database infrastructure (NEW)
+    │   ├── create_client.py   # Supabase client initialization
+    │   ├── seed.py            # Database seeding script
+    │   ├── utils.py           # Database utilities
+    │   └── supabase/          # Supabase configuration
+    │       ├── .branches/     # Branch tracking
+    │       ├── .temp/         # Temp config files
+    │       ├── migrations/    # Database migrations
+    │       │   └── 20251004145020_test_connection_table.sql
+    │       └── seed.sql       # SQL seed data
+    │
+    ├── models/                 # Data models
+    │
+    ├── tests/                  # Test suite
+    │   ├── test_add.py
+    │   ├── test_auth.py
+    │   ├── test_cli_unites.py
+    │   ├── test_list.py
+    │   └── test_supabase.py   # Supabase tests (NEW)
+    │
+    └── workflows/              # CI/CD workflows
+        ├── publish.yml
+        └── test.yml
+```
+
+### Data Flow
+
+```
+User Input (CLI)
+      ↓
+cli.py (Click CLI)
+      ↓
+commands/ (Command Handlers)
+      ↓
+core/ (Business Logic)
+      ↓
+database/create_client.py (Supabase Client)
+      ↓
+Supabase Database (Remote)
+      ↓
+core/output.py (Formatted Response)
+      ↓
+Terminal Output
+```
+
+### Key Components
+
+**CLI Layer** (`cli.py`, `commands/`)
+- User-facing command interface
+- Command routing and validation
+- Click-based CLI framework
+
+**Business Logic** (`core/`)
+- Application logic and processing
+- Database operations abstraction
+- Git integration for project context
+- Supabase integration layer
+
+**Database Layer** (`database/`)
+- Supabase client management
+- Database seeding and utilities
+- Migration management
+- Connection pooling
+
+**Testing** (`tests/`)
+- Unit tests for all commands
+- Supabase connection tests
+- Integration tests
