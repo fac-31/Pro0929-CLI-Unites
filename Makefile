@@ -1,13 +1,15 @@
+# runs all pytest functions
 test:
 	uv run pytest -s -v
 
+# seeds the production db
 seed:
 	uv run python cli_unites/database/seed.py
 
-db_reset:
-	bash -c "cd cli_unites/database && supabase start && supabase db reset"
+# resets local db
+reset:
+	supabase db reset
 
-db_push:
-	cd cli_unites/database
+# pushes moigartions to production db
+push:
 	supabase db push
-	cd ../
