@@ -211,3 +211,18 @@ Apache 2.0 - see [LICENSE](LICENSE) for details.
 - Anna van Wingerden
 - Jaz Maslen  
 - Rich Couzens
+
+
+
+nb.
+
+to see onboarding run this in your terminal to set onboarding flag to false: 
+
+source .venv/bin/activate
+python - <<'PY'
+from cli_unites.core.config import ConfigManager
+manager = ConfigManager()
+current = manager.get("first_run_completed")
+manager.set("first_run_completed", not current)
+print(f"first_run_completed toggled to {not current}")
+PY

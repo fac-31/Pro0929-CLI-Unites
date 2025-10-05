@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import sys
+from textwrap import dedent
+
 import click
 
 from .config import ConfigManager
@@ -122,7 +124,6 @@ def _capture_first_note(manager: ConfigManager, team_id: str | None) -> Note:
             [
                 "Use the arrow keys (or y/n) to answer prompts.",
                 "You can skip by pressing Ctrl+C at any time.",
-                "Tip: capture notes later with `notes add \"Title\" --body \"Summary\"`.",
             ],
         )
     )
@@ -131,12 +132,22 @@ def _capture_first_note(manager: ConfigManager, team_id: str | None) -> Note:
     title = click.prompt("Note title", default=title_default).strip()
     title = title or title_default
 
-    console.print(
-        "[dim]No editor needed—capture the key points right here in the terminal.[/dim]"
-    )
-    body = click.prompt(
-        "Summarise the note", default="Shipped our first collaborative note."
-    ).strip()
+    body = ""
+    if click.confirm("Open your editor to write the note?", default=True):
+        template = dedent(
+            """
+            # Describe what happened, why it mattered, and any follow-up.
+            # Lines starting with # are ignored.
+            """
+        )
+        edited = click.edit(template)
+        if edited is None:
+            raise click.Abort()
+        body = "\n".join(line for line in edited.splitlines() if not line.startswith("#")).strip()
+    if not body:
+        body = click.prompt(
+            "Summarise the note", default="Shipped our first collaborative note."
+        )
 
     tags_default = "onboarding,first-note"
     tag_input = click.prompt("Tags (comma separated)", default=tags_default)
