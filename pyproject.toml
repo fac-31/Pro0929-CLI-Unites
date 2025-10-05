@@ -5,10 +5,14 @@ description = "unite your team with query-able project notes"
 readme = "README.md"
 authors = [{name = "Anna van Wingerden, Jaz Maslen, Rich Couzens"}]
 license = "Apache-2.0"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = []
 dependencies = [
     "click",
+    "psycopg2-binary>=2.9.10",
+    "pytest>=8.4.2",
+    "python-dotenv>=1.1.1",
+    "supabase>=2.20.0",
     "rich"
 ]
 
@@ -28,5 +32,11 @@ notes = "cli_unites.cli:cli"
 [project.optional-dependencies]
 test = ["pytest"]
 
+[tool.pytest.ini_options]
+#this filters out supabase deprecation warnings for conecting the the client
+  filterwarnings = [
+      "ignore::DeprecationWarning:supabase.*",
+  ]
 [tool.setuptools.packages.find]
 include = ["cli_unites*"]
+exclude = ["supabase*"]
