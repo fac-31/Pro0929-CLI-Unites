@@ -36,14 +36,25 @@ def run_onboarding() -> None:
     if manager.get("first_run_completed"):
         return
 
-    with get_connection() as db:
-        has_notes = bool(db.list_notes(limit=1))
-    if has_notes and not click.confirm(
-        "Existing notes detected. Launch the guided tour anyway?", default=False
-    ):
-        manager.set("first_run_completed", True)
-        return
+    console.print()
+    console.print(
+        render_status_panel(
+            [
+                "[bold]Welcome to cli-unites[/bold]",
+                "Get started with:",
+                "`notes team --set <team>`",
+                "`notes add \"Title\" --body \"...\"`",
+                "`notes list`",
+            ],
+            ["Run `notes onboarding` for the full interactive tutorial."],
+        )
+    )
+    console.print()
+    manager.set("first_run_completed", True)
 
+
+def launch_guided_tour() -> None:
+    manager = ConfigManager()
     try:
         _guided_tour(manager)
         manager.set("first_run_completed", True)
@@ -131,9 +142,6 @@ def _capture_first_note(manager: ConfigManager, team_id: str | None) -> Note:
     title = click.prompt("Note title", default=title_default).strip()
     title = title or title_default
 
-    console.print(
-        "[dim]No editor needed—capture the key points right here in the terminal.[/dim]"
-    )
     body = click.prompt(
         "Summarise the note", default="Shipped our first collaborative note."
     ).strip()

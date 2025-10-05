@@ -10,10 +10,11 @@ from .add import add
 from .auth import auth
 from .help import help_command
 from .list import list_notes
+from .onboarding import onboarding
 from .search import search
 from .team import team
 
-COMMANDS = (add, auth, list_notes, search, team, help_command, activity)
+COMMANDS = (add, auth, list_notes, search, team, help_command, activity, onboarding)
 
 
 def register(group: Group, commands: Iterable = COMMANDS) -> None:
