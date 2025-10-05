@@ -33,6 +33,9 @@ cd Pro0929-CLI-Unites
 uv venv
 source .venv/bin/activate
 uv pip install -e '.[test]'
+
+# Fix for editable install issue (see Troubleshooting below)
+ln -sf $(pwd)/notes_wrapper.py .venv/bin/notes
 ```
 
 ## Quick Start
@@ -193,6 +196,75 @@ cli_unites/
 └── cli.py           # Main CLI entry point
 ```
 
+
+## Development Notes
+
+### Re-running the Onboarding Tour
+
+To reset the onboarding flag and see the guided tour again:
+
+```bash
+source .venv/bin/activate
+python - <<'PY'
+from cli_unites.core.config import ConfigManager
+manager = ConfigManager()
+current = manager.get("first_run_completed")
+manager.set("first_run_completed", not current)
+print(f"Onboarding flag toggled to: {not current}")
+PY
+```
+
+This will reset the first-run experience, allowing you to see the interactive onboarding flow again.
+
+
+## Troubleshooting
+
+### "ModuleNotFoundError: No module named 'cli_unites'" Error
+
+This is a known issue with editable installs using setuptools entry points. The generated entry point script doesn't properly include the current directory in Python's module search path.
+
+**Symptoms:**
+- `notes --help` fails with `ModuleNotFoundError: No module named 'cli_unites'`
+- The error persists even after successful package installation
+
+**Solution:**
+The project includes a wrapper script (`notes_wrapper.py`) that fixes this issue. After installing the package, create a symlink to replace the broken entry point:
+
+```bash
+# After running: uv pip install -e '.[test]'
+ln -sf $(pwd)/notes_wrapper.py .venv/bin/notes
+```
+
+**If you reinstall the package:**
+Every time you run `uv pip install -e .` or `uv pip install -e '.[test]'`, you'll need to recreate the symlink as it gets overwritten:
+
+```bash
+uv pip install -e '.[test]'
+ln -sf $(pwd)/notes_wrapper.py .venv/bin/notes
+```
+
+**Alternative workaround:**
+You can also run the CLI directly without the entry point:
+```bash
+python -m cli_unites.cli --help
+```
+
+### Virtual Environment Not Activated
+
+Make sure your virtual environment is activated before running commands:
+```bash
+source .venv/bin/activate  # On Unix/macOS
+# or
+.venv\Scripts\activate     # On Windows
+```
+
+### Missing Dependencies
+
+If you get import errors for dependencies like `rich_click`, make sure all dependencies are installed:
+```bash
+uv pip install -e '.[test]'
+```
+
 ## Contributing
 
 1. Fork the repository
@@ -213,16 +285,3 @@ Apache 2.0 - see [LICENSE](LICENSE) for details.
 - Rich Couzens
 
 
-
-nb.
-
-to see onboarding run this in your terminal to set onboarding flag to false: 
-
-source .venv/bin/activate
-python - <<'PY'
-from cli_unites.core.config import ConfigManager
-manager = ConfigManager()
-current = manager.get("first_run_completed")
-manager.set("first_run_completed", not current)
-print(f"first_run_completed toggled to {not current}")
-PY
