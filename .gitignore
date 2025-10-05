@@ -9,3 +9,4 @@ venv
 .DS_Store
 supabase/.temp/
 supabase/.branches/
+PR.md
