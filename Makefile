@@ -5,11 +5,9 @@ seed:
 	uv run python cli_unites/database/seed.py
 
 db_reset:
-	cd cli_unites/database/supabase
-	supabase db reset
-	cd ../../
+	bash -c "cd cli_unites/database && supabase start && supabase db reset"
 
 db_push:
-	cd cli_unites/database/supabase
+	cd cli_unites/database
 	supabase db push
-	cd ../../
+	cd ../
