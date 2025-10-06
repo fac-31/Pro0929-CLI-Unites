@@ -13,8 +13,9 @@ from .list import list_notes
 from .onboarding import onboarding
 from .search import search
 from .team import team
+from .realtime import realtime
 
-COMMANDS = (add, auth, list_notes, search, team, help_command, activity, onboarding)
+COMMANDS = (add, auth, list_notes, search, team, realtime, help_command, activity, onboarding)
 
 
 def register(group: Group, commands: Iterable = COMMANDS) -> None:

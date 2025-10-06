@@ -17,8 +17,10 @@ CONFIG_FILENAME = "config.json"
 DEFAULT_CONFIG: Dict[str, Any] = {
     "auth_token": None,
     "team_id": None,
-    "supabase_url": None,
-    "supabase_key": None,
+    "supabase_url": os.getenv("SUPABASE_URL"),
+    "supabase_key": os.getenv("SUPABASE_KEY"),
+    "supabase_realtime_url": os.getenv("SUPABASE_REALTIME_URL"),
+    "supabase_realtime_channel": os.getenv("SUPABASE_REALTIME_CHANNEL") or "realtime:public:notes",
     "team_history": [],
     "first_run_completed": False,
 }
