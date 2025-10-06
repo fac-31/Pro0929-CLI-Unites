@@ -9,5 +9,6 @@ venv
 .DS_Store
 supabase/.temp/
 supabase/.branches/
+supabase/seed.sql
 PR.md
 .env

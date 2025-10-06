@@ -56,7 +56,7 @@ create table notes (
   -- Content
   title text not null,
   body text not null,
-  --body_embedding vector(384),  -- For semantic search
+  body_embedding vector(384),  -- For semantic search
 
   -- Optional context
   path_id uuid references paths(id) on delete set null,
@@ -78,22 +78,33 @@ create table notes_tags (
 );
 
 -- Indexes for vector similarity search
---create index on notes
---using ivfflat (body_embedding vector_cosine_ops)
---with (lists = 100);
+create index on notes
+using ivfflat (body_embedding vector_cosine_ops)
+with (lists = 100);
 
 -- Indexes for full-text search
---create index on notes using gin(body_tsv);
+create index on notes using gin(body_tsv);
 
 -- Indexes for common queries
--- create index on notes(user_id);
--- create index on notes(project_id);
--- create index on notes(path_id);
--- create index on paths(project_id);
--- create index on paths(relative_path);
--- create index on projects(team_id);
--- create index on notes_tags(note_id);
--- create index on notes_tags(tag_id);
+create index on notes(user_id);
+create index on notes(project_id);
+create index on notes(path_id);
+create index on paths(project_id);
+create index on paths(relative_path);
+create index on projects(team_id);
+create index on notes_tags(note_id);
+create index on notes_tags(tag_id);
+
+-- Content function for embedding generation
+create function notes_content(rec notes)
+returns text
+language plpgsql
+immutable
+as $$
+begin
+  return rec.title || ' ' || rec.body;
+end;
+$$;
 
 -- Trigger to update updated_at timestamp
 create or replace function update_updated_at_column()
@@ -108,3 +119,16 @@ create trigger update_notes_updated_at
   before update on notes
   for each row
   execute function update_updated_at_column();
+
+-- Clear embedding when content changes
+create trigger clear_body_embedding_on_notes_update
+before update of title, body on notes
+for each row
+execute function util.clear_column('body_embedding');
+
+-- Queue embedding job after insert/update
+create trigger queue_body_embedding_on_notes_change
+after insert or update of body_embedding on notes
+for each row
+when (NEW.body_embedding is null)
+execute function util.queue_embeddings('notes_content', 'body_embedding');
