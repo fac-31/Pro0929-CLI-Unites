@@ -26,7 +26,7 @@ Dependencies: websockets asyncio
 - [x] Phase 2: Update packaging metadata to include websocket dependencies and verify local install via pip install -e .
 - [x] Phase 3: Implement a SupabaseRealtimeClient class that wraps connection lifecycle, channel subscription, and event dispatch callbacks.
 - [x] Phase 4: Introduce CLI commands/subcommands for realtime listen and send flows, wiring them to the client and ensuring graceful shutdown.
-- [ ] Phase 5: Create async messaging helpers to publish note updates or direct messages using Supabase REST/RPC while reusing the websocket session.
+- [x] Phase 5: Create async messaging helpers to publish note updates or direct messages using Supabase REST/RPC while reusing the websocket session.
 - [ ] Phase 6: Build automated tests with mocked websocket interactions plus manual testing scripts for staging Supabase projects.
 - [ ] Phase 7: Draft alert-system extension notes covering notification triggers, delivery channels, and required API changes.
 
@@ -35,3 +35,5 @@ Dependencies: websockets asyncio
 - `SUPABASE_KEY` / `--supabase-key`: anon or service-role key for authenticating websocket traffic.
 - `SUPABASE_REALTIME_URL` / `--supabase-realtime-url`: optional override when the websocket endpoint diverges from the default `wss://<project>.supabase.co/realtime/v1`.
 - `SUPABASE_REALTIME_CHANNEL` / `--supabase-realtime-channel`: default channel to subscribe to (defaults to `realtime:public:notes`).
+- `SUPABASE_NOTE_TABLE` / `--supabase-note-table`: table used when persisting note updates before broadcasting (defaults to `notes`).
+- `SUPABASE_MESSAGE_TABLE` / `--supabase-message-table`: table used when storing direct messages before broadcasting (defaults to `messages`).

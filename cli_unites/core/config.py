@@ -21,6 +21,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "supabase_key": os.getenv("SUPABASE_KEY"),
     "supabase_realtime_url": os.getenv("SUPABASE_REALTIME_URL"),
     "supabase_realtime_channel": os.getenv("SUPABASE_REALTIME_CHANNEL") or "realtime:public:notes",
+    "supabase_note_table": os.getenv("SUPABASE_NOTE_TABLE") or "notes",
+    "supabase_message_table": os.getenv("SUPABASE_MESSAGE_TABLE") or "messages",
     "team_history": [],
     "first_run_completed": False,
 }
