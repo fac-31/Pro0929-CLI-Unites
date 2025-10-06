@@ -13,7 +13,8 @@ dependencies = [
     "pytest>=8.4.2",
     "python-dotenv>=1.1.1",
     "supabase>=2.20.0",
-    "rich"
+    "rich",
+    "rich-click"
 ]
 
 [build-system]
@@ -27,7 +28,7 @@ Issues = "https://github.com/fac-31/Pro0929-CLI-Unites/issues"
 CI = "https://github.com/fac-31/Pro0929-CLI-Unites/actions"
 
 [project.scripts]
-notes = "cli_unites.cli:cli"
+notes = "cli_unites.main:main"
 
 [project.optional-dependencies]
 test = ["pytest"]
