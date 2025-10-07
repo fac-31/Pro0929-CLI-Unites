@@ -9,9 +9,10 @@ from .add import add
 from .auth import auth
 from .list import list_notes
 from .search import search
+from .semantic_search import semantic_search
 from .team import team
 
-COMMANDS = (add, auth, list_notes, search, team)
+COMMANDS = (add, auth, list_notes, search, semantic_search, team)
 
 
 def register(group: Group, commands: Iterable = COMMANDS) -> None:
