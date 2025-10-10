@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-
+import os
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -8,6 +8,9 @@ import threading
 from ..database.create_client import supabase
 from .config import ConfigManager
 from .output import console, render_status_panel, print_success, print_error
+
+# Get the absolute path to the templates directory
+TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), '..', 'templates')
 
 
 def serialize_datetime(obj):
@@ -89,24 +92,19 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
 
                 print_success("Successfully authenticated!")
 
-                self.wfile.write(
-                    b"<html><body><h1>Authentication successful!</h1>"
-                    b"<p>You can close this window.</p></body></html>"
-                )
+                with open(os.path.join(TEMPLATES_DIR, 'success.html'), 'rb') as f:
+                    self.wfile.write(f.read())
+
             except Exception as e:
                 print_error(f"Error exchanging code for session: {e}")
-                self.wfile.write(
-                    b"<html><body><h1>Authentication failed.</h1>"
-                    b"<p>Error exchanging code for session.</p></body></html>"
-                )
+                with open(os.path.join(TEMPLATES_DIR, 'error.html'), 'rb') as f:
+                    self.wfile.write(f.read())
 
             # Shutdown server after handling the request
             threading.Thread(target=self.server.shutdown).start()
         else:
-            self.wfile.write(
-                b"<html><body><h1>Authentication failed.</h1>"
-                b"<p>No authorization code found.</p></body></html>"
-            )
+            with open(os.path.join(TEMPLATES_DIR, 'error.html'), 'rb') as f:
+                self.wfile.write(f.read())
 
 
 def handle_login_flow() -> None:
