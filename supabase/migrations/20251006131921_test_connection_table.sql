@@ -128,7 +128,7 @@ execute function util.clear_column('body_embedding');
 
 -- Queue embedding job after insert/update
 create trigger queue_body_embedding_on_notes_change
-after insert or update of body_embedding on notes
+after insert or update of title, body on notes
 for each row
 when (NEW.body_embedding is null)
 execute function util.queue_embeddings('notes_content', 'body_embedding');
