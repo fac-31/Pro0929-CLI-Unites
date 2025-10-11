@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import click
 
-from ..core import console, print_warning, render_notes_table
+from ..core import console, print_warning, render_note_panel
 from ..core.db import get_connection
 from ..models.note import Note
 
@@ -21,10 +21,14 @@ def semantic_search(query: str, limit: int) -> None:
 
     # Display results with similarity scores
     notes = [Note.from_row(row) for row in rows]
-    console.print(render_notes_table(notes))
+    
+    console.print(f"\nFound [bold]{len(notes)}[/] matching notes:")
 
-    # Show similarity scores
-    console.print("\n[dim]Similarity scores:[/dim]")
-    for row in rows:
+    for note, row in zip(notes, rows):
+        panel = render_note_panel(note)
+        
+        # Add similarity score to the panel title
         similarity_percent = row.get("similarity", 0) * 100
-        console.print(f"  • {row['title'][:50]}: [green]{similarity_percent:.1f}%[/green]")
+        panel.title += f" | [green]Similarity: {similarity_percent:.1f}%[/green]"
+        
+        console.print(panel)

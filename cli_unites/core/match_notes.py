@@ -7,16 +7,13 @@ import numpy as np
 
 
 def match_notes(
-    self, query_embedding: List[float], limit: int = 10, threshold: float = 0.0
+    self, query_embedding: List[float], limit: int = 10, threshold: float = 0.3
 ) -> List[Dict[str, Any]]:
     """Perform semantic search using vector embeddings - Pure Python version."""
 
-    print("\n Semantic Search (Python version)")
-
-    print(f"Generated query embedding: {len(query_embedding)} dimensions")
+    print("\n Searching for your notes...")
 
     # 2. Fetch ALL notes with embeddings from database
-    print("Fetching notes from database...")
     notes = (
         self.client.table("notes")
         .select(
@@ -27,10 +24,10 @@ def match_notes(
     )
 
     if not notes.data:
-        print("⚠️  No notes with embeddings found")
+        print("No notes with embeddings found")
         return []
 
-    print(f"Fetched {len(notes.data)} notes with embeddings")
+    print(f"Fetched {len(notes.data)} notes")
 
     # 3. Calculate similarity for each note in Python
     results = []
@@ -66,9 +63,5 @@ def match_notes(
     # 4. Sort by similarity (highest first) and limit
     results.sort(key=lambda x: x["similarity"], reverse=True)
     results = results[:limit]
-
-    print(f"Found {len(results)} matches above threshold {threshold}")
-    for idx, r in enumerate(results[:3], 1):
-        print(f"   {idx}. {r['title'][:40]}: {r['similarity']:.4f}")
 
     return results

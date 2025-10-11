@@ -154,22 +154,14 @@ class Database:
 
         return combined
 
-    def semantic_search(self, query: str, limit: int = 10, threshold: float = 0.0) -> List[Dict[str, Any]]:
+    def semantic_search(self, query: str, limit: int = 10, threshold: float = 0.3) -> List[Dict[str, Any]]:
         """Perform semantic search using vector embeddings."""
         import sys
         import supabase
 
-        # Print the exact version of the library being used
-        print(f"[DEBUG] Supabase version: {supabase.__version__}", file=sys.stderr)
-
         # Generate embedding for the query by calling the 'search-embed' edge function
-        print(f"[DEBUG] Generating embedding for query: {query}", file=sys.stderr)
         response = self.client.functions.invoke("search-embed", invoke_options={'body': {'query': query}})
-        print(f"[DEBUG] response {response}")
         query_embedding = json.loads(response)['embedding']
-        print(f"[DEBUG] Generated {len(query_embedding)} dimensions", file=sys.stderr)
-        print(f"[DEBUG] Embedding type: {type(query_embedding)}", file=sys.stderr)
-        print(f"[DEBUG] First 5 values: {query_embedding[:5]}", file=sys.stderr)
 
         return match_notes(self, query_embedding, limit=limit, threshold=threshold)
 
