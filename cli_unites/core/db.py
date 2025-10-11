@@ -152,33 +152,47 @@ class Database:
 
         return combined
 
-    def semantic_search(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+    def semantic_search(self, query: str, limit: int = 10, threshold: float = 0.0) -> List[Dict[str, Any]]:
         """Perform semantic search using vector embeddings."""
         # Generate embedding for the query using OpenAI
         from openai import OpenAI
+        import sys
 
         openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        print(f"[DEBUG] Generating embedding for query: {query}", file=sys.stderr)
         response = openai.embeddings.create(
             model="text-embedding-3-small",
             dimensions=384,  # Match database vector(384)
             input=query
         )
         query_embedding = response.data[0].embedding
+        print(f"[DEBUG] Generated {len(query_embedding)} dimensions", file=sys.stderr)
 
-        # Convert embedding to string format that PostgreSQL expects
+        # Convert embedding to PostgreSQL vector format string
         embedding_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
+        print(f"[DEBUG] Embedding string preview: {embedding_str[:100]}...", file=sys.stderr)
+        print(f"[DEBUG] Calling RPC with threshold={threshold}", file=sys.stderr)
 
-        # Use Supabase RPC to call a vector similarity function
-        result = self.client.rpc(
-            "match_notes",
-            {
-                "query_embedding": embedding_str,
-                "match_threshold": 0.5,
-                "match_count": limit
-            }
-        ).execute()
+        # Call RPC with text parameter (will be cast to vector in function)
+        try:
+            response = self.client.rpc(
+                "match_notes",
+                {
+                    "query_embedding": embedding_str,
+                    "match_threshold": threshold,
+                    "match_count": limit
+                }
+            ).execute()
 
-        return result.data
+            print(f"[DEBUG] RPC returned {len(response.data)} results", file=sys.stderr)
+            if response.data:
+                print(f"[DEBUG] First result: {response.data[0].get('title', 'N/A')} (similarity: {response.data[0].get('similarity', 'N/A')})", file=sys.stderr)
+            return response.data
+        except Exception as e:
+            print(f"[DEBUG] RPC failed: {e}", file=sys.stderr)
+            import traceback
+            traceback.print_exc(file=sys.stderr)
+            return []
 
     def close(self) -> None:
         # Supabase client doesn't need explicit closing
