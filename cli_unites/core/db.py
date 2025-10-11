@@ -160,6 +160,7 @@ class Database:
         openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         response = openai.embeddings.create(
             model="text-embedding-3-small",
+            dimensions=384,  # Match database vector(384)
             input=query
         )
         query_embedding = response.data[0].embedding

@@ -4,16 +4,10 @@ create schema util;
 -- Utility function to get the Supabase project URL (required for Edge Functions)
 create function util.project_url()
 returns text
-language plpgsql
-security definer
+language sql
+immutable
 as $$
-declare
-  secret_value text;
-begin
-  -- Retrieve the project URL from Vault
-  select decrypted_secret into secret_value from vault.decrypted_secrets where name = 'project_url';
-  return secret_value;
-end;
+  select 'https://fxxbesjfsiygzqmqmwwr.supabase.co'::text;
 $$;
 
 -- Generic function to invoke any Edge Function
@@ -24,16 +18,23 @@ create or replace function util.invoke_edge_function(
 )
 returns void
 language plpgsql
+security definer
 as $$
 declare
   headers_raw text;
   auth_header text;
+  service_role_key text;
 begin
+  -- Try to get service role key from environment (set via Supabase secrets)
+  service_role_key := current_setting('app.settings.service_role_key', true);
+
   -- If we're in a PostgREST session, reuse the request headers for authorization
   headers_raw := current_setting('request.headers', true);
 
-  -- Only try to parse if headers are present
+  -- Determine which authorization to use
   auth_header := case
+    when service_role_key is not null then
+      'Bearer ' || service_role_key
     when headers_raw is not null then
       (headers_raw::json->>'authorization')
     else
@@ -131,14 +132,17 @@ begin
   from batched_jobs
   into job_batches;
 
-  -- Invoke the embed edge function for each batch
-  foreach batch in array job_batches loop
-    perform util.invoke_edge_function(
-      name => 'embed',
-      body => batch,
-      timeout_milliseconds => timeout_milliseconds
-    );
-  end loop;
+  -- Only process if there are jobs
+  if job_batches is not null then
+    -- Invoke the embed edge function for each batch
+    foreach batch in array job_batches loop
+      perform util.invoke_edge_function(
+        name => 'embed',
+        body => batch,
+        timeout_milliseconds => timeout_milliseconds
+      );
+    end loop;
+  end if;
 end;
 $$;
 

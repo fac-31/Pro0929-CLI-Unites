@@ -23,7 +23,7 @@ const sql = postgres(
 
 const jobSchema = z.object({
   jobId: z.number(),
-  id: z.number(),
+  id: z.string().uuid(),
   schema: z.string(),
   table: z.string(),
   contentFunction: z.string(),
@@ -132,6 +132,7 @@ Deno.serve(async (req) => {
 async function generateEmbedding(text: string) {
   const response = await openai.embeddings.create({
     model: "text-embedding-3-small",
+    dimensions: 384,  // Match database vector(384)
     input: text,
   });
   const [data] = response.data;
@@ -152,12 +153,12 @@ async function processJob(job: Job) {
   // Fetch content for the schema/table/row combination
   const [row]: [Row] = await sql`
     select
-      id,
+      id::text,
       ${sql(contentFunction)}(t) as content
     from
       ${sql(schema)}.${sql(table)} t
     where
-      id = ${id}
+      id = ${id}::uuid
   `;
 
   if (!row) {
@@ -178,7 +179,7 @@ async function processJob(job: Job) {
     set
       ${sql(embeddingColumn)} = ${JSON.stringify(embedding)}
     where
-      id = ${id}
+      id = ${id}::uuid
   `;
 
   await sql`
