@@ -10,6 +10,18 @@ as $$
   select 'https://fxxbesjfsiygzqmqmwwr.supabase.co'::text;
 $$;
 
+-- Placeholder for service role key function
+-- This will be overwritten by a local-only migration (*_set_service_role_key_local.sql)
+-- that is gitignored and contains the actual service role key
+create function util.service_role_key()
+returns text
+language sql
+immutable
+security definer
+as $$
+  select 'REPLACE_WITH_SERVICE_ROLE_KEY'::text;
+$$;
+
 -- Generic function to invoke any Edge Function
 create or replace function util.invoke_edge_function(
   name text,
@@ -23,22 +35,16 @@ as $$
 declare
   headers_raw text;
   auth_header text;
-  service_role_key text;
 begin
-  -- Try to get service role key from environment (set via Supabase secrets)
-  service_role_key := current_setting('app.settings.service_role_key', true);
-
   -- If we're in a PostgREST session, reuse the request headers for authorization
   headers_raw := current_setting('request.headers', true);
 
   -- Determine which authorization to use
   auth_header := case
-    when service_role_key is not null then
-      'Bearer ' || service_role_key
     when headers_raw is not null then
       (headers_raw::json->>'authorization')
     else
-      null
+      'Bearer ' || util.service_role_key()
   end;
 
   -- Perform async HTTP request to the edge function

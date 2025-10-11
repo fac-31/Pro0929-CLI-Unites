@@ -8,8 +8,14 @@ seed:
 
 # resets local db
 reset:
-	supabase db reset
+	supabase db reset --linked
 
 # pushes moigartions to production db
 push:
 	supabase db push
+
+edge:
+	supabase functions deploy embed
+
+i:
+	pip install -e .
