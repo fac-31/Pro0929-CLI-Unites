@@ -4,7 +4,7 @@ test:
 
 # seeds the production db
 seed:
-	uv run python cli_unites/database/seed.py
+	./seed.sh
 
 # resets local db
 reset:
