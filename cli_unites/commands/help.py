@@ -7,12 +7,15 @@ from ..core import console
 
 HELP_CONTENT = """[bold]cli-unites quick start[/bold]
 
-• [bold]Authenticate[/bold]: `notes auth --token TOKEN --team-id TEAM`
-• [bold]Add notes[/bold]: `notes add "Title" --body "Details"`
-• [bold]List notes[/bold]: `notes list --tag release`
-• [bold]Search[/bold]: `notes search "keyword"`
-• [bold]Switch team[/bold]: `notes team --set my-team`
-• [bold]Team activity[/bold]: `notes activity --limit 5`
+• [bold]Authentication[/bold]: `notes auth --token TOKEN --team-id TEAM`
+• [bold]Login[/bold]: `notes login`
+• [bold]Logout[/bold]: `notes logout`
+• [bold]Add Note[/bold]: `notes add "Title" --body "Details"`
+• [bold]List Notes[/bold]: `notes list --tag release`
+• [bold]Search Notes[/bold]: `notes search "keyword"`
+• [bold]Switch Team[/bold]: `notes team --set my-team`
+• [bold]Team Activity[/bold]: `notes activity --limit 5`
+
 
 Tips:
 - Omit `--body` to open an editor or pipe text from another command.
@@ -27,4 +30,9 @@ def help_command(topic: str | None) -> None:
     """Show usage tips and quick links."""
     console.print(Panel.fit(HELP_CONTENT, border_style="cyan"))
     if topic:
-        console.print(f"[dim]No detailed walkthrough for [bold]{topic}[/bold] yet. Try the README or `notes help` without a topic.[/dim]")
+        console.print(
+            (
+                f"[dim]No detailed walkthrough for [bold]{topic}[/bold] yet. "
+                "Try the README or `notes help` without a topic.[/dim]"
+            )
+        )

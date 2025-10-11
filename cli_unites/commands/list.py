@@ -4,6 +4,7 @@ import sys
 
 import click
 
+
 from ..core import console, print_warning, render_note_panel, render_notes_table
 from ..core.config import ConfigManager
 from ..core.db import get_connection
