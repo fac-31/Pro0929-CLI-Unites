@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
 async function generateEmbedding(text: string) {
   const response = await openai.embeddings.create({
     model: "text-embedding-3-small",
-    dimensions: 384,  // Match database vector(384)
+    dimensions: 384, // Match database vector(384)
     input: text,
   });
   const [data] = response.data;

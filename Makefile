@@ -18,4 +18,4 @@ edge:
 	supabase functions deploy embed
 
 i:
-	pip install -e .
+	pip3 install -e .
