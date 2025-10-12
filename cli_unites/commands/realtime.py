@@ -36,6 +36,11 @@ def _load_realtime_config(channel_override: str | None) -> Dict[str, Any]:
     api_key = config.get("supabase_key")
     channel = channel_override or config.get("supabase_realtime_channel") or "realtime:public:notes"
     realtime_url = config.get("supabase_realtime_url")
+    
+    # Fix realtime_url if it's missing the wss:// scheme
+    if realtime_url and not realtime_url.startswith(("ws://", "wss://")):
+        realtime_url = f"wss://{realtime_url}"
+    
     note_table = config.get("supabase_note_table") or "notes"
     message_table = config.get("supabase_message_table") or "messages"
     if not project_url or not api_key:

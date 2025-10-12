@@ -3,9 +3,13 @@ from __future__ import annotations
 
 import rich_click as click
 from rich_click import rich_click
+from dotenv import load_dotenv, find_dotenv
 
 from .commands import register
 from .core.onboarding import run_onboarding
+
+# Load environment variables from .env file (searches up directory tree)
+load_dotenv(find_dotenv(usecwd=True))
 
 rich_click.TEXT_MARKUP = True
 rich_click.MAX_WIDTH = 100
