@@ -20,15 +20,8 @@ class Note:
 
     @classmethod
     def from_row(cls, row: dict) -> "Note":
-        # Handle tags - can be a comma-separated string or None
-        tags_str = row.get("tags") or ""
-        tags = [tag.strip() for tag in tags_str.split(",") if tag.strip()] if tags_str else []
-
-        # Handle created_at - can be a string or datetime object
-        created_at = row["created_at"]
-        if isinstance(created_at, str):
-            created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-
+        tags = [tag for tag in (row.get("tags") or "").split(",") if tag]
+        created_at = datetime.fromisoformat(row["created_at"])
         return cls(
             id=row["id"],
             title=row["title"],

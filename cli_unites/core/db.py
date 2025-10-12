@@ -41,6 +41,7 @@ class Database:
         git_commit: Optional[str] = None,
         git_branch: Optional[str] = None,
         project_path: Optional[str] = None,
+        team_id: Optional[str] = None,
     ) -> str:
         note_id = str(uuid4())
 

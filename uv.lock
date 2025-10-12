@@ -33,11 +33,11 @@ wheels = [
 
 [[package]]
 name = "certifi"
-version = "2025.8.3"
+version = "2025.10.5"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/dc/67/960ebe6bf230a96cda2e0abcf73af550ec4f090005363542f0765df162e0/certifi-2025.8.3.tar.gz", hash = "sha256:e564105f78ded564e3ae7c923924435e1daa7463faeab5bb932bc53ffae63407", size = 162386, upload-time = "2025-08-03T03:07:47.08Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4c/5b/b6ce21586237c77ce67d01dc5507039d444b630dd76611bbca2d8e5dcd91/certifi-2025.10.5.tar.gz", hash = "sha256:47c09d31ccf2acf0be3f701ea53595ee7e0b8fa08801c6624be771df09ae7b43", size = 164519, upload-time = "2025-10-05T04:12:15.808Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e5/48/1549795ba7742c948d2ad169c1c8cdbae65bc450d6cd753d124b17c8cd32/certifi-2025.8.3-py3-none-any.whl", hash = "sha256:f6c12493cfb1b06ba2ff328595af9350c65d6644968e5d3a2ffd78699af217a5", size = 161216, upload-time = "2025-08-03T03:07:45.777Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/37/af0d2ef3967ac0d6113837b44a4f0bfe1328c2b9763bd5b1744520e5cfed/certifi-2025.10.5-py3-none-any.whl", hash = "sha256:0f212c2744a9bb6de0c56639a6f68afe01ecd92d91f14ae897c4fe7bbeeef0de", size = 163286, upload-time = "2025-10-05T04:12:14.03Z" },
 ]
 
 [[package]]
@@ -148,6 +148,7 @@ dependencies = [
     { name = "pytest" },
     { name = "python-dotenv" },
     { name = "rich" },
+    { name = "rich-click" },
     { name = "supabase" },
     { name = "vecs" },
 ]
@@ -169,6 +170,8 @@ requires-dist = [
     { name = "rich" },
     { name = "supabase", specifier = ">=2.22.0" },
     { name = "vecs", specifier = ">=0.4.5" },
+    { name = "rich-click" },
+    { name = "supabase", specifier = ">=2.20.0" },
 ]
 provides-extras = ["test"]
 
@@ -1182,6 +1185,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/fe/75/af448d8e52bf1d8fa6a9d089ca6c07ff4453d86c65c145d0a300bb073b9b/rich-14.1.0.tar.gz", hash = "sha256:e497a48b844b0320d45007cdebfeaeed8db2a4f4bcf49f15e455cfc4af11eaa8", size = 224441, upload-time = "2025-07-25T07:32:58.125Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e3/30/3c4d035596d3cf444529e0b2953ad0466f6049528a879d27534700580395/rich-14.1.0-py3-none-any.whl", hash = "sha256:536f5f1785986d6dbdea3c75205c473f970777b4a0d6c6dd1b696aa05a3fa04f", size = 243368, upload-time = "2025-07-25T07:32:56.73Z" },
+]
+
+[[package]]
+name = "rich-click"
+version = "1.9.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click", version = "8.1.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "click", version = "8.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "rich" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0c/4d/e8fcbd785a93dc5d7aef38f8aa4ade1e31b0c820eb2e8ff267056eda70b1/rich_click-1.9.2.tar.gz", hash = "sha256:1c4212f05561be0cac6a9c1743e1ebcd4fe1fb1e311f9f672abfada3be649db6", size = 73533, upload-time = "2025-10-04T21:56:25.36Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a9/27/7a82106d69738aefb81e044d6dd278053c5263581c5e8e5330e1339b8444/rich_click-1.9.2-py3-none-any.whl", hash = "sha256:5079dad67ed7df434a9ec1f20b1d62d831e58c78740026f968ce3d3b861f01a0", size = 70153, upload-time = "2025-10-04T21:56:24.066Z" },
 ]
 
 [[package]]

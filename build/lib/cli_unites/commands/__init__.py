@@ -1,5 +1,4 @@
 """CLI command registrations."""
-
 from __future__ import annotations
 
 from typing import Iterable
@@ -11,27 +10,10 @@ from .add import add
 from .auth import auth
 from .help import help_command
 from .list import list_notes
-from .onboarding import onboarding
 from .search import search
-from .semantic_search import semantic_search
 from .team import team
-from .login import login
-from .logout import logout  
 
-
-COMMANDS = (
-    add,
-    auth,
-    list_notes,
-    search,
-    semantic_search,
-    team,
-    help_command,
-    activity,
-    onboarding,
-    login,
-    logout,
-)
+COMMANDS = (add, auth, list_notes, search, team, help_command, activity)
 
 
 def register(group: Group, commands: Iterable = COMMANDS) -> None:

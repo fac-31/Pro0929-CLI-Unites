@@ -12,7 +12,10 @@ supabase/.branches/
 supabase/seed.sql
 PR.md
 .env
+.flake8
+.vscode/
 
 # Local-only migration with secrets (never commit)
 supabase/migrations/*_set_service_role_key_local.sql
 20251006142000_match_notes_function.sql
+
