@@ -13,6 +13,7 @@ from .help import help_command
 from .list import list_notes
 from .onboarding import onboarding
 from .search import search
+from .semantic_search import semantic_search
 from .team import team
 from .login import login
 from .logout import logout  
@@ -23,7 +24,7 @@ COMMANDS = (
     auth,
     list_notes,
     search,
-    team, 
+    semantic_search, team, 
     realtime,
     help_command,
     activity,
