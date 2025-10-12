@@ -75,24 +75,8 @@ def add(title: str, body: str | None, allow_empty: bool, tags: Iterable[str]) ->
         stored = db.get_note(note_id)
     note = Note.from_row(stored) if stored else None
 
-    print_success(f"Saved note {note_id} for {note.title if note else title}.")
+    print_success(f"Saved note {note_id}: {note.title if note else title}.")
     if note is not None:
         console.print(render_note_panel(note))
 
-    status_lines = ["[success]Saved locally[/success]"]
-    if config.get("supabase_url") and config.get("supabase_key"):
-        status_lines.append("[success]Supabase sync configured[/success]")
-    else:
-        status_lines.append(
-            "[warning]Sync not configured. Run `notes auth --supabase-url ... --supabase-key ...`[/warning]"
-        )
-
-    context_bits = []
-    if config.get("team_id"):
-        context_bits.append(f"Team: [note.title]{config['team_id']}[/note.title]")
-    if git_context.get("branch"):
-        context_bits.append(f"Branch: {git_context['branch']}")
-    if git_context.get("commit"):
-        context_bits.append(f"Commit: {git_context['commit'][:7]}")
-
-    console.print(render_status_panel(status_lines, context_bits))
+    
