@@ -48,7 +48,7 @@ class Database:
         # First, ensure project exists if project_path is provided
         project_id = None
         if project_path:
-            project_id = self._ensure_project(project_path)
+            project_id = self._ensure_project(project_path, team_id)
 
         # Insert the note
         note_data = {
@@ -67,7 +67,7 @@ class Database:
 
         return note_id
 
-    def _ensure_project(self, project_path: str) -> str:
+    def _ensure_project(self, project_path: str, team_id: Optional[str] = None) -> str:
         """Ensure project exists, create if not. Returns project_id."""
         # Check if project exists
         response = self.client.table("projects").select("id").eq("absolute_path", project_path).execute()
@@ -75,16 +75,37 @@ class Database:
         if response.data:
             return response.data[0]["id"]
 
-        # Create new project (you may need to associate with a team)
-        # For now, we'll skip team association
+        # Create new project and associate with team if provided
         project_id = str(uuid4())
         project_data = {
             "id": project_id,
             "name": project_path.split("/")[-1],  # Use last part of path as name
             "absolute_path": project_path,
         }
+        
+        # If team_id is provided, try to find or create the team
+        if team_id:
+            team_uuid = self._ensure_team(team_id)
+            project_data["team_id"] = team_uuid
+        
         self.client.table("projects").insert(project_data).execute()
         return project_id
+
+    def _ensure_team(self, team_name: str) -> str:
+        """Ensure team exists, create if not. Returns team UUID."""
+        # Check if team exists by name
+        response = self.client.table("teams").select("id").eq("name", team_name).execute()
+        
+        if response.data:
+            return response.data[0]["id"]
+        
+        # Create new team
+        team_id = str(uuid4())
+        self.client.table("teams").insert({
+            "id": team_id,
+            "name": team_name
+        }).execute()
+        return team_id
 
     def _add_tags_to_note(self, note_id: str, tags: Iterable[str]) -> None:
         """Add tags to a note."""
@@ -107,8 +128,27 @@ class Database:
                 "tag_id": tag_id
             }).execute()
 
-    def list_notes(self, limit: Optional[int] = None, tag: Optional[str] = None) -> List[Dict[str, Any]]:
-        query = self.client.table("notes").select("*")
+    def list_notes(self, limit: Optional[int] = None, tag: Optional[str] = None, team_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        # If team_id is provided, we need to join with projects to filter by team
+        if team_id:
+            # First get the team UUID
+            team_response = self.client.table("teams").select("id").eq("name", team_id).execute()
+            if not team_response.data:
+                # Team doesn't exist, return empty results
+                return []
+            team_uuid = team_response.data[0]["id"]
+            
+            # Get all projects for this team
+            projects_response = self.client.table("projects").select("id").eq("team_id", team_uuid).execute()
+            if not projects_response.data:
+                # No projects for this team, return empty results
+                return []
+            project_ids = [p["id"] for p in projects_response.data]
+            
+            # Now query notes that belong to these projects
+            query = self.client.table("notes").select("*").in_("project_id", project_ids)
+        else:
+            query = self.client.table("notes").select("*")
 
         if tag:
             # Join with tags to filter
@@ -126,24 +166,35 @@ class Database:
         response = self.client.table("notes").select("*").eq("id", note_id).execute()
         return response.data[0] if response.data else None
 
-    def search_notes(self, query: str) -> List[Dict[str, Any]]:
+    def search_notes(self, query: str, team_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        # Get project IDs if team_id is provided
+        project_ids = None
+        if team_id:
+            # First get the team UUID
+            team_response = self.client.table("teams").select("id").eq("name", team_id).execute()
+            if not team_response.data:
+                # Team doesn't exist, return empty results
+                return []
+            team_uuid = team_response.data[0]["id"]
+            
+            # Get all projects for this team
+            projects_response = self.client.table("projects").select("id").eq("team_id", team_uuid).execute()
+            if not projects_response.data:
+                # No projects for this team, return empty results
+                return []
+            project_ids = [p["id"] for p in projects_response.data]
+        
         # Full-text search using PostgreSQL's tsvector
-        response = (
-            self.client.table("notes")
-            .select("*")
-            .text_search("body_tsv", query)
-            .order("created_at", desc=True)
-            .execute()
-        )
+        body_query = self.client.table("notes").select("*").text_search("body_tsv", query)
+        if project_ids:
+            body_query = body_query.in_("project_id", project_ids)
+        response = body_query.order("created_at", desc=True).execute()
 
         # Also search in title (case-insensitive)
-        title_results = (
-            self.client.table("notes")
-            .select("*")
-            .ilike("title", f"%{query}%")
-            .order("created_at", desc=True)
-            .execute()
-        )
+        title_query = self.client.table("notes").select("*").ilike("title", f"%{query}%")
+        if project_ids:
+            title_query = title_query.in_("project_id", project_ids)
+        title_results = title_query.order("created_at", desc=True).execute()
 
         # Combine and deduplicate results
         seen_ids = set()

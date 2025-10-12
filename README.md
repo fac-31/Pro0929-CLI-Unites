@@ -7,7 +7,7 @@
 
 **Unite your team with query-able project notes**
 
-A command-line tool for capturing, organizing, and searching project knowledge across your team. Built with SQLite for offline-first operation and automatic git context capture.
+A command-line tool for capturing, organizing, and searching project knowledge across your team. Built with Supabase for cloud-based collaboration and automatic git context capture.
 
 ## Features
 
@@ -15,7 +15,7 @@ A command-line tool for capturing, organizing, and searching project knowledge a
 - 🔍 **Search**: Find notes by keyword across title, body, and tags
 - 📋 **List & Filter**: View notes with tag filtering and team isolation
 - 👥 **Team Management**: Organize notes by team with configurable defaults
-- 🔐 **Authentication**: Optional Supabase integration for team sync
+- 🔐 **Supabase Integration**: Cloud-based storage with PostgreSQL and vector search
 - 📊 **Activity Feed**: See recent notes and team activity
 - 🎨 **Rich UI**: Beautiful terminal output with Rich formatting
 
@@ -142,22 +142,24 @@ Configure authentication and sync settings.
 
 ## Data Storage
 
-- **Local Database**: SQLite database stored in `~/.cli-unites/notes.db`
+- **Supabase Database**: All notes are stored in your Supabase PostgreSQL database
 - **Git Integration**: Automatically captures commit hash, branch, and project path
 - **Team Isolation**: Notes can be organized by team with configurable defaults
-- **Offline First**: Works completely offline; sync is optional
+- **Cloud-First**: Requires Supabase connection for all operations
 
 ## Configuration
 
 Configuration is stored in `~/.cli-unites/config.json`. Key settings:
 
 - `team_id`: Default team for new notes
-- `supabase_url` & `supabase_key`: Optional sync configuration
+- `supabase_url` & `supabase_key`: Required for database connection
 - `first_run_completed`: Onboarding completion flag
 
 ## Environment Variables
 
-- `CLI_UNITES_DB_PATH`: Override database location
+- `SUPABASE_URL`: Your Supabase project URL (required)
+- `SUPABASE_KEY`: Your Supabase service role key (required)
+- `USER_ID`: User ID for note attribution
 - `CLI_UNITES_DISABLE_GIT`: Set to "1" to disable git context capture
 - `CLI_UNITES_SKIP_ONBOARDING`: Set to "1" to skip first-run setup
 
