@@ -5,6 +5,7 @@ single JSON document stored under the user's home directory. The location can be
 overridden via the `CLI_UNITES_CONFIG_DIR` environment variable which makes it
 straightforward to isolate state during tests.
 """
+
 from __future__ import annotations
 
 import json
@@ -16,6 +17,7 @@ CONFIG_DIR_ENV = "CLI_UNITES_CONFIG_DIR"
 CONFIG_FILENAME = "config.json"
 DEFAULT_CONFIG: Dict[str, Any] = {
     "auth_token": None,
+    "refresh_token": None,
     "team_id": None,
     "supabase_url": os.getenv("SUPABASE_URL"),
     "supabase_key": os.getenv("SUPABASE_KEY"),
@@ -94,7 +96,9 @@ def save_config(config: Dict[str, Any], config_dir: Optional[Path] = None) -> No
     manager.save()
 
 
-def update_config(updates: Dict[str, Any], config_dir: Optional[Path] = None) -> Dict[str, Any]:
+def update_config(
+    updates: Dict[str, Any], config_dir: Optional[Path] = None
+) -> Dict[str, Any]:
     manager = ConfigManager(config_dir=config_dir)
     manager.update(updates)
     return manager.as_dict()

@@ -1,17 +1,22 @@
 from __future__ import annotations
 
 import click
-from rich.pretty import Pretty
 
-from ..core import console, print_success, print_warning
+from ..core import console, print_warning, render_status_panel
 from ..core.config import ConfigManager
+
+
+def truncate_token(token: str | None, length: int = 12) -> str | None:
+    if not token:
+        return None
+    return token[:length] + "..." if len(token) > length else token
 
 
 @click.command(name="auth")
 @click.option("--token", help="CLI auth token")
 @click.option("--team-id", help="Default team identifier")
-@click.option("--supabase-url", help="Supabase project URL (falls back to SUPABASE_URL)")
-@click.option("--supabase-key", help="Supabase service role key (falls back to SUPABASE_KEY)")
+@click.option("--supabase-url", help="Supabase project URL")
+@click.option("--supabase-key", help="Supabase service role key")
 @click.option(
     "--supabase-realtime-url",
     help="Override the Supabase Realtime websocket URL (defaults to derived wss endpoint)",
@@ -22,7 +27,9 @@ from ..core.config import ConfigManager
 )
 @click.option("--supabase-note-table", help="Supabase table name used for note updates (default notes)")
 @click.option("--supabase-message-table", help="Supabase table name used for direct messages (default messages)")
-@click.option("--show", is_flag=True, help="Show the currently stored auth configuration")
+@click.option(
+    "--show", is_flag=True, help="Show the currently stored auth configuration"
+)
 def auth(
     token: str | None,
     team_id: str | None,
@@ -37,6 +44,7 @@ def auth(
     """Manage authentication details."""
     manager = ConfigManager()
     updates = {}
+
     if token:
         updates["auth_token"] = token
     if team_id:
@@ -56,14 +64,27 @@ def auth(
 
     if updates:
         manager.update(updates)
-        print_success("Updated authentication configuration.")
+        console.print(
+            render_status_panel(
+                ["[success]Updated authentication configuration[/success]"],
+                [f"Updated fields: {', '.join(updates.keys())}"],
+            )
+        )
 
     if show or not updates:
         config = manager.as_dict()
         sanitized = {
             **config,
+            "auth_token": truncate_token(config.get("auth_token")),
             "supabase_key": "***" if config.get("supabase_key") else None,
         }
-        if sanitized.get("auth_token") is None:
+
+        if not sanitized.get("auth_token"):
             print_warning("No authentication details stored.")
-        console.print(Pretty(sanitized, indent_guides=True))
+
+        lines = [f"{k}: {v}" for k, v in sanitized.items() if v is not None]
+        console.print(
+            render_status_panel(
+                ["[bold]Current Authentication Configuration[/bold]"], lines
+            )
+        )

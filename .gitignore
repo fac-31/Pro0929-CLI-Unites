@@ -11,4 +11,5 @@ supabase/.temp/
 supabase/.branches/
 PR.md
 .env
+.flake8
 .env.local
