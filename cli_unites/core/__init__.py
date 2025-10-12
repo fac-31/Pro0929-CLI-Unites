@@ -13,6 +13,9 @@ from .output import (
     render_note_panel,
     render_notes_table,
     render_status_panel,
+    fullscreen_display,
+    print_app_header,
+    set_fullscreen_background,
 )
 
 __all__ = [
@@ -32,4 +35,7 @@ __all__ = [
     "render_note_panel",
     "render_notes_table",
     "render_status_panel",
+    "fullscreen_display",
+    "print_app_header",
+    "set_fullscreen_background",
 ]

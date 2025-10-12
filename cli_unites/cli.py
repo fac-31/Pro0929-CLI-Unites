@@ -1,16 +1,23 @@
 """CLI entrypoint for cli-unites."""
 from __future__ import annotations
 
+import os
+import sys
+
 import rich_click as click
 from rich_click import rich_click
+from rich.console import Console
+from rich.theme import Theme
 from dotenv import load_dotenv, find_dotenv
 
 from .commands import register
 from .core.onboarding import run_onboarding
+from .core import print_app_header, set_fullscreen_background
 
 # Load environment variables from .env file (searches up directory tree)
 load_dotenv(find_dotenv(usecwd=True))
 
+# Configure rich_click with our dark theme
 rich_click.TEXT_MARKUP = True
 rich_click.MAX_WIDTH = 100
 rich_click.STYLE_HELPTEXT = "dim"
@@ -19,10 +26,34 @@ rich_click.GROUP_ARGUMENTS_OPTIONS = True
 rich_click.SHOW_ARGUMENTS = True
 rich_click.OPTIONS_TABLE_COLUMN_TYPES = ["required", "opt_long", "help"]
 
+# Track if we're in fullscreen mode
+_FULLSCREEN_ENABLED = False
 
-@click.group(context_settings={"help_option_names": ["-h", "--help"]})
+# Set up fullscreen mode immediately if interactive and no --no-fullscreen flag
+if sys.stdout.isatty() and "--no-fullscreen" not in sys.argv:
+    sys.stderr.write("DEBUG: Module-level fullscreen setup\n")
+    sys.stderr.flush()
+    set_fullscreen_background()
+    print_app_header()
+    _FULLSCREEN_ENABLED = True
+
+
+def _exit_fullscreen():
+    """Reset terminal when exiting."""
+    if _FULLSCREEN_ENABLED and sys.stdout.isatty():
+        # Reset background color but DON'T clear screen
+        sys.stdout.write("\033[0m")
+        sys.stdout.flush()
+
+
+import atexit
+atexit.register(_exit_fullscreen)
+
+
+@click.group(context_settings={"help_option_names": ["-h", "--help"]}, invoke_without_command=True)
+@click.pass_context
 @click.version_option()
-def cli() -> None:
+def cli(ctx) -> None:
     """Unite your team with query-able project notes.
 
     **Popular commands**
@@ -32,6 +63,10 @@ def cli() -> None:
     • `notes search "keyword"`
     """
     run_onboarding()
+    
+    # If no subcommand, show help
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
 
 
 register(cli)
