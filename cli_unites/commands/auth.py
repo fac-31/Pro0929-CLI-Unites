@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import click
 
-from ..core import console, print_warning, render_status_panel
+from ..core import console, print_warning, render_simple_panel
 from ..core.config import ConfigManager
 
 
@@ -83,8 +83,4 @@ def auth(
             print_warning("No authentication details stored.")
 
         lines = [f"{k}: {v}" for k, v in sanitized.items() if v is not None]
-        console.print(
-            render_status_panel(
-                ["[bold]Current Authentication Configuration[/bold]"], lines
-            )
-        )
+        console.print(render_simple_panel("Authentication", Group(*[Text.from_markup(line) for line in lines])))

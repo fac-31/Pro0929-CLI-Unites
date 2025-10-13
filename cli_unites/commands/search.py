@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import click
 
-from ..core import console, print_warning, render_notes_table
+from ..core import console, print_warning, display_notes_list
 from ..core.config import ConfigManager
 from ..core.db import get_connection
 from ..models.note import Note
@@ -23,4 +23,4 @@ def search(query: str, all_teams: bool) -> None:
         print_warning("No matches found.")
         return
     notes = [Note.from_row(row) for row in rows]
-    console.print(render_notes_table(notes))
+    display_notes_list(notes)

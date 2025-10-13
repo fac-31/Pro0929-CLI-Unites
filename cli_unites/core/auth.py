@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlparse
 import threading
 from ..database.create_client import supabase
 from .config import ConfigManager
-from .output import console, render_status_panel, print_success, print_error
+from .output import console, render_simple_panel, print_success, print_error
 
 # Get the absolute path to the templates directory
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), '..', 'templates')
@@ -109,9 +109,9 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
 
 def handle_login_flow() -> None:
     console.print(
-        render_status_panel(
-            ["[bold]Logging in with github...[/bold]"],
-            ["This will open a browser window for authentication..."],
+        render_simple_panel(
+            "GitHub Login",
+            "This will open a browser window for authentication..."
         )
     )
     console.print()

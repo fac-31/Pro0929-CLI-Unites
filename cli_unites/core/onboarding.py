@@ -11,9 +11,9 @@ from .output import (
     console,
     print_success,
     print_warning,
-    render_note_panel,
-    render_notes_table,
-    render_status_panel,
+    display_note_view,
+    display_notes_list,
+    render_simple_panel,
 )
 from ..models.note import Note
 
@@ -65,7 +65,7 @@ def launch_guided_tour() -> None:
 
 
 def _guided_tour(manager: ConfigManager) -> None:
-    console.print(render_status_panel([WELCOME_PANEL], None))
+    console.print(render_simple_panel("Welcome", Text.from_markup(WELCOME_PANEL)))
     console.print()
 
     team_id = _ensure_team(manager)
@@ -78,12 +78,13 @@ def _guided_tour(manager: ConfigManager) -> None:
 
     console.print()
     console.print(
-        render_status_panel(
-            [
-                "[success]You're ready to work as a team![/success]",
-                "Next steps: share `notes install` with teammates or connect Supabase via `notes auth`.",
-            ],
-            ["Run `notes help` anytime for a refresher."],
+        render_simple_panel(
+            "Ready to Work",
+            Group(
+                Text.from_markup("[success]You're ready to work as a team![/success]"),
+                Text.from_markup("Next steps: share `notes install` with teammates or connect Supabase via `notes auth`."),
+                Text.from_markup("Run `notes help` anytime for a refresher."),
+            )
         )
     )
 
@@ -91,16 +92,12 @@ def _guided_tour(manager: ConfigManager) -> None:
 def _ensure_team(manager: ConfigManager) -> str | None:
     current_team = manager.get("team_id")
     console.print(
-        render_status_panel(
-            [
-                "[bold]Step 1 · Choose your team[/bold]",
-                "Notes are scoped to a team so you can share context quickly.",
-            ],
-            (
-                [f"Current team: [note.title]{current_team}[/note.title]"]
-                if current_team
-                else ["No team configured yet."]
-            ),
+        render_simple_panel(
+            "Step 1: Choose your team",
+            Group(
+                Text.from_markup("Notes are scoped to a team so you can share context quickly."),
+                Text.from_markup(f"Current team: [note.title]{current_team}[/note.title]" if current_team else "No team configured yet.")
+            )
         )
     )
     console.print()
@@ -125,16 +122,14 @@ def _ensure_team(manager: ConfigManager) -> str | None:
 
 def _capture_first_note(manager: ConfigManager, team_id: str | None) -> Note:
     console.print(
-        render_status_panel(
-            [
-                "[bold]Step 2 · Capture your first note[/bold]",
-                "We'll walk through creating a note with title, body, and tags.",
-            ],
-            [
-                "Use the arrow keys (or y/n) to answer prompts.",
-                "You can skip by pressing Ctrl+C at any time.",
-                "Tip: capture notes later with `notes add \"Title\" --body \"Summary\"`.",
-            ],
+        render_simple_panel(
+            "Step 2: Capture your first note",
+            Group(
+                Text.from_markup("We'll walk through creating a note with title, body, and tags."),
+                Text.from_markup("Use the arrow keys (or y/n) to answer prompts."),
+                Text.from_markup("You can skip by pressing Ctrl+C at any time."),
+                Text.from_markup("Tip: capture notes later with `notes add \"Title\" --body \"Summary\"`."),
+            )
         )
     )
 
@@ -167,10 +162,8 @@ def _capture_first_note(manager: ConfigManager, team_id: str | None) -> Note:
 
     console.print()
     print_success("First note captured!")
-    console.print(render_note_panel(note))
-
-    status_lines = ["[success]Saved to Supabase[/success]"]
-
+    display_note_view(note)
+    
     context_lines = []
     if team_id:
         context_lines.append(f"Team: [note.title]{team_id}[/note.title]")
@@ -179,7 +172,7 @@ def _capture_first_note(manager: ConfigManager, team_id: str | None) -> Note:
     if git_context.get("commit"):
         context_lines.append(f"Commit: {git_context['commit'][:7]}")
 
-    console.print(render_status_panel(status_lines, context_lines))
+    console.print(render_simple_panel("Note Saved", Group(*[Text.from_markup(line) for line in context_lines])))
     return note
 
 
@@ -187,11 +180,11 @@ def _show_feature_highlights(
     manager: ConfigManager, team_id: str | None, note: Note
 ) -> None:
     console.print(
-        render_status_panel(
-            ["[bold]Step 3 · Explore your workspace[/bold]"],
-            [
-                "We'll preview list, search, and team activity so you know where to look next.",
-            ],
+        render_simple_panel(
+            "Step 3: Explore your workspace",
+            Group(
+                Text.from_markup("We'll preview list, search, and team activity so you know where to look next."),
+            )
         )
     )
 
@@ -206,18 +199,18 @@ def _show_feature_highlights(
 
     console.print()
     console.print("[bold]notes list[/bold] — browse recent notes")
-    console.print(render_notes_table(notes))
+    display_notes_list(notes)
     console.print("[dim]Tip: Add `--tag release` to focus on relevant streams.[/dim]")
 
     if search_notes:
         console.print("[bold]notes search " + f"\"{note.title.split()[0]}\"")
-        console.print(render_notes_table(search_notes))
+        display_notes_list(search_notes)
     else:
         console.print("[warning]Search results will appear once you add more notes.")
 
     console.print()
     console.print("[bold]notes activity[/bold] — team timeline")
-    console.print(render_notes_table(recent_notes))
+    display_notes_list(recent_notes)
     console.print(
         "[dim]Use `notes activity --team your-team` to inspect other squads or workspaces.[/dim]"
     )

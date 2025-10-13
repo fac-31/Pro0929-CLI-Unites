@@ -5,7 +5,7 @@ import sys
 import click
 
 
-from ..core import console, print_warning, render_note_panel, render_notes_table, fullscreen_display
+from ..core import console, print_warning, display_notes_list, display_note_view
 from ..core.config import ConfigManager
 from ..core.db import get_connection
 from ..models.note import Note
@@ -32,18 +32,12 @@ def list_notes(tag: str | None, limit: int | None, team: str | None, fullscreen:
         return
     notes = [Note.from_row(row) for row in rows]
     
-    table = render_notes_table(
+    display_notes_list(
         notes,
         show_index=True,
         include_team=False,
         include_summary=True,
     )
-    
-    if fullscreen:
-        fullscreen_display(table, title=f"notes ({len(notes)} found)")
-        return
-    
-    console.print(table)
 
     if sys.stdin.isatty() and sys.stdout.isatty():
         try:
@@ -68,4 +62,4 @@ def list_notes(tag: str | None, limit: int | None, team: str | None, fullscreen:
             print_warning("Selection out of range.")
             return
 
-        console.print(render_note_panel(notes[index - 1]))
+        display_note_view(notes[index - 1])

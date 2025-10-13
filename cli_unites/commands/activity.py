@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import click
 
-from ..core import console, print_warning, render_notes_table
+from ..core import console, print_warning, display_notes_list
 from ..core.config import ConfigManager
 from ..core.db import get_connection
 from ..models.note import Note
@@ -31,4 +31,4 @@ def activity(team: str | None, limit: int) -> None:
             print_warning("No team set; showing recent notes across all teams.")
 
         notes = [Note.from_row(row) for row in rows]
-    console.print(render_notes_table(notes))
+    console.print(display_notes_list(notes))

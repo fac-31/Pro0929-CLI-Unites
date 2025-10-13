@@ -4,6 +4,8 @@ from __future__ import annotations
 import os
 import sys
 
+
+
 import rich_click as click
 from rich_click import rich_click
 from rich.console import Console
@@ -12,7 +14,7 @@ from dotenv import load_dotenv, find_dotenv
 
 from .commands import register
 from .core.onboarding import run_onboarding
-from .core import print_app_header, set_fullscreen_background
+from .core.output import ACCENT, SUBDUED, set_fullscreen_background
 
 # Load environment variables from .env file (searches up directory tree)
 load_dotenv(find_dotenv(usecwd=True))
@@ -20,8 +22,8 @@ load_dotenv(find_dotenv(usecwd=True))
 # Configure rich_click with our dark theme
 rich_click.TEXT_MARKUP = True
 rich_click.MAX_WIDTH = 100
-rich_click.STYLE_HELPTEXT = "dim"
-rich_click.STYLE_HEADER_TEXT = "bold cyan"
+rich_click.STYLE_HELPTEXT = SUBDUED
+rich_click.STYLE_HEADER_TEXT = f"bold {ACCENT}"
 rich_click.GROUP_ARGUMENTS_OPTIONS = True
 rich_click.SHOW_ARGUMENTS = True
 rich_click.OPTIONS_TABLE_COLUMN_TYPES = ["required", "opt_long", "help"]
@@ -34,7 +36,7 @@ if sys.stdout.isatty() and "--no-fullscreen" not in sys.argv:
     sys.stderr.write("DEBUG: Module-level fullscreen setup\n")
     sys.stderr.flush()
     set_fullscreen_background()
-    print_app_header()
+
     _FULLSCREEN_ENABLED = True
 
 

@@ -10,11 +10,11 @@ from .output import (
     print_error,
     print_success,
     print_warning,
-    render_note_panel,
-    render_notes_table,
-    render_status_panel,
-    fullscreen_display,
-    print_app_header,
+    display_notes_list,
+    display_note_view,
+    display_note_add_success,
+    render_simple_panel,
+
     set_fullscreen_background,
 )
 
@@ -32,10 +32,10 @@ __all__ = [
     "print_error",
     "print_success",
     "print_warning",
-    "render_note_panel",
-    "render_notes_table",
-    "render_status_panel",
-    "fullscreen_display",
-    "print_app_header",
+    "display_notes_list",
+    "display_note_view",
+    "display_note_add_success",
+    "render_simple_panel",
+
     "set_fullscreen_background",
 ]
