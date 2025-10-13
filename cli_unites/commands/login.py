@@ -5,4 +5,5 @@ from ..core.auth import handle_login_flow
 
 @click.command(name="login")
 def login() -> None:
+    """Login with your github account."""
     handle_login_flow()

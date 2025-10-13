@@ -4,8 +4,10 @@ from ..core.output import print_success
 from ..core.config import ConfigManager
 
 
+# This doesn't actually log you out yet.
 @click.command(name="logout")
 def logout() -> None:
+    """Log out of your github account."""
     config = ConfigManager()
     config.update(
         {

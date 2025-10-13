@@ -5,8 +5,9 @@ import json
 from dataclasses import replace
 from typing import Any, Dict
 
-import click
-from rich.pretty import Pretty
+import rich_click as click
+from rich.console import Console
+from rich.panel import Panel
 
 from ..core import ConfigManager, console, print_error, print_success
 from ..realtime import RealtimeChannelConfig, RealtimeMessenger, SupabaseRealtimeClient
@@ -92,13 +93,34 @@ def listen(channel: str | None, events: tuple[str, ...], raw: bool) -> None:
                 if raw:
                     console.print_json(data=message)
                     continue
-                filtered = {
-                    "topic": message.get("topic"),
-                    "event": message.get("event"),
-                    "type": message.get("payload", {}).get("type"),
-                    "data": message.get("payload"),
-                }
-                console.print(Pretty(filtered, indent_guides=True))
+
+                payload = message.get("payload", {}) or {}
+                pg_data = payload.get("data", {}) 
+                record = pg_data.get("record") if isinstance(pg_data, dict) else None
+
+                # Handle direct broadcasts (messages)
+                if payload.get("type") == "message":
+                    content = payload.get("content")
+                    panel = Panel(f"[bold]Message:[/bold] {content}", title="Realtime Message", expand=False)
+                    console.print(panel)
+                    continue
+
+                # Handle Postgres changes (INSERT, UPDATE, DELETE)
+                if record and pg_data.get("type") == "INSERT":
+                    table = pg_data.get("table")
+                    event_type = pg_data.get("type")
+                    title = record.get("title") or record.get("body") or str(record)
+                    body = record.get("body") if record.get("body") else ""
+                    panel_content = f"[bold]Event:[/bold] {event_type}\n[bold]Table:[/bold] {table}\n[bold]Title:[/bold] {title}"
+                    if body:
+                        panel_content += f"\n[bold]Body:[/bold] {body}"
+                    panel = Panel(panel_content, title="Realtime DB Change", expand=False)
+                    console.print(panel)
+                    continue
+
+                # Fallback: unknown structured message
+                # panel = Panel(f"[bold]Event:[/bold] {message.get('event')} (unrecognized format)", title="Realtime Event", expand=False)
+                # console.print(panel)
 
     try:
         asyncio.run(_run_listener())
@@ -107,6 +129,8 @@ def listen(channel: str | None, events: tuple[str, ...], raw: bool) -> None:
     except Exception as exc:  # pragma: no cover - user feedback
         print_error(f"Realtime listener failed: {exc}")
 
+
+# ------------------------- Remaining Commands (send, note_update, direct_message) -------------------------
 
 @realtime.command()
 @click.option("--channel", help="Realtime channel to broadcast to (default from config)")
@@ -148,6 +172,8 @@ def send(channel: str | None, message: str | None, payload: str | None) -> None:
     else:
         print_success("Message broadcast to realtime channel.")
 
+
+# ------------------------- note_update -------------------------
 
 @realtime.command(name="note-update")
 @click.option("--channel", help="Realtime channel override (default from config)")
@@ -227,9 +253,11 @@ def note_update(
         print_error(f"Note update failed: {exc}")
         return
 
-    console.print(Pretty({"note": stored}, indent_guides=True))
+    console.print(Panel(f"{stored}", title="Note Update Stored", expand=False))
     print_success("Note update persisted and broadcast.")
 
+
+# ------------------------- direct_message -------------------------
 
 @realtime.command(name="direct-message")
 @click.option("--channel", help="Realtime channel override (default from config)")
@@ -314,5 +342,5 @@ def direct_message(
         print_error(f"Direct message failed: {exc}")
         return
 
-    console.print(Pretty({"message": stored}, indent_guides=True))
+    console.print(Panel(f"{stored}", title="Direct Message Stored", expand=False))
     print_success("Direct message stored and broadcast.")
