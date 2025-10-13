@@ -260,10 +260,10 @@ def render_notes_table(
     if show_index:
         table.add_column("#", style=f"{SUBDUED} italic", no_wrap=True, justify="right")
     table.add_column("ID", style="magenta", no_wrap=True)
-    table.add_column("Title", style=f"{ACCENT} bold italic")
+    table.add_column("Title", style=f"{ACCENT} bold italic", overflow="fold", min_width=15)
     if include_summary:
-        table.add_column("Summary", style=f"{INK} italic")
-    table.add_column("Tags", style="bright_green")
+        table.add_column("Summary", style=f"{INK} italic", overflow="fold")
+    table.add_column("Tags", style="bright_green", overflow="fold")
     if include_team:
         table.add_column("Team", style=f"{INK} italic", no_wrap=True)
     table.add_column("Created", style=f"{SUBDUED} italic", no_wrap=True)

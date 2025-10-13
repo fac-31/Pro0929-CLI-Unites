@@ -16,6 +16,10 @@ import string
 
 from dotenv import load_dotenv
 from supabase import create_client, Client
+try:  # pragma: no cover - optional dependency
+    from postgrest.exceptions import APIError as PostgrestAPIError  # type: ignore
+except Exception:  # pragma: no cover
+    PostgrestAPIError = None  # type: ignore
 from cli_unites.core.match_notes import match_notes
 from .auth import get_auth_manager
 from .config import _resolve_config_dir
@@ -83,6 +87,12 @@ class Database:
         self.client: Optional[Client] = None
         self.sqlite_conn: Optional[sqlite3.Connection] = None
         self.db_path: Optional[Path] = None
+        self.supports_team_slug: bool = True
+        self.supports_team_description: bool = True
+        self.supports_team_created_by: bool = True
+        self.supports_user_team_role: bool = True
+        self.supports_user_team_invited_by: bool = True
+        self.supports_team_invitations: bool = True
 
         resolved_db_path = _resolve_db_path(db_path)
         if resolved_db_path is not None:
@@ -96,6 +106,7 @@ class Database:
     def _init_supabase(self, supabase_client: Optional[Client]) -> None:
         if supabase_client is not None:
             self.client = supabase_client
+            self.supports_team_slug = True
             return
 
         url = os.getenv("SUPABASE_URL")
@@ -103,6 +114,7 @@ class Database:
         if not url or not key:
             raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in environment")
         self.client = create_client(url, key)
+        self.supports_team_slug = True
 
     def _init_sqlite(self, db_path: Path) -> None:
         self.db_path = Path(db_path)
@@ -110,6 +122,12 @@ class Database:
         self.sqlite_conn = sqlite3.connect(self.db_path)
         self.sqlite_conn.row_factory = sqlite3.Row
         self._ensure_sqlite_schema()
+        self.supports_team_slug = False
+        self.supports_team_description = False
+        self.supports_team_created_by = False
+        self.supports_user_team_role = False
+        self.supports_user_team_invited_by = False
+        self.supports_team_invitations = False
 
     def _ensure_sqlite_schema(self) -> None:
         assert self.sqlite_conn is not None
@@ -236,7 +254,60 @@ class Database:
             raise TeamServiceUnavailable("Supabase is not configured for this operation.")
         return self.client
 
-    def _unique_team_slug(self, name: str, exclude_team_id: Optional[str] = None) -> str:
+    def _handle_slug_capability_error(self, exc: Exception) -> bool:
+        """Detect missing slug column and downgrade capability."""
+        message = str(exc).lower()
+        if "slug" in message and ("does not exist" in message or "unknown column" in message):
+            if self.supports_team_slug:
+                logger.info("Team slug column unavailable; falling back to legacy name-based teams.")
+            self.supports_team_slug = False
+            return True
+        if PostgrestAPIError and isinstance(exc, PostgrestAPIError):
+            details = getattr(exc, "details", None)
+            if details and "slug" in str(details).lower():
+                self.supports_team_slug = False
+                return True
+        return False
+
+    def _handle_team_column_error(self, exc: Exception) -> bool:
+        message = str(exc).lower()
+        handled = False
+        if self.supports_team_description and "description" in message and "teams" in message:
+            self.supports_team_description = False
+            handled = True
+        if self.supports_team_created_by and ("created_by" in message and "teams" in message):
+            self.supports_team_created_by = False
+            handled = True
+        if handled:
+            logger.info("Disabling advanced team columns due to schema mismatch: %s", message)
+        return handled
+
+    def _handle_users_team_column_error(self, exc: Exception) -> bool:
+        message = str(exc).lower()
+        handled = False
+        if self.supports_user_team_role and "role" in message and "users_teams" in message:
+            self.supports_user_team_role = False
+            handled = True
+        if self.supports_user_team_invited_by and ("invited_by" in message and "users_teams" in message):
+            self.supports_user_team_invited_by = False
+            handled = True
+        if handled:
+            logger.info("Disabling users_teams optional columns due to schema mismatch: %s", message)
+        return handled
+
+    def _handle_invitations_error(self, exc: Exception) -> bool:
+        message = str(exc).lower()
+        if "team_invitations" in message and ("does not exist" in message or "relation" in message):
+            if self.supports_team_invitations:
+                logger.info("Team invitations table missing; disabling invitation features.")
+            self.supports_team_invitations = False
+            return True
+        return False
+
+    def _unique_team_slug(self, name: str, exclude_team_id: Optional[str] = None) -> Optional[str]:
+        if not self.supports_team_slug:
+            return None
+
         client = self._require_supabase_client()
         base_slug = slugify(name)
         candidate = base_slug
@@ -247,6 +318,8 @@ class Database:
                 query = client.table("teams").select("id").eq("slug", candidate)
                 response = query.execute()
             except Exception as exc:
+                if self._handle_slug_capability_error(exc):
+                    return None
                 raise TeamServiceUnavailable("Unable to generate unique team slug.") from exc
 
             if not response.data:
@@ -265,6 +338,8 @@ class Database:
         try:
             response = client.table("teams").select("*").eq(field, value).limit(1).execute()
         except Exception as exc:
+            if field == "slug" and self._handle_slug_capability_error(exc):
+                return None
             raise TeamServiceUnavailable("Failed to fetch team information.") from exc
 
         if not response.data:
@@ -285,12 +360,13 @@ class Database:
                 return team
 
         # Try slug, then name case-insensitive
-        team = self._fetch_team("slug", identifier)
-        if team:
-            return team
+        if self.supports_team_slug:
+            team = self._fetch_team("slug", identifier)
+            if team:
+                return team
 
         try:
-            response = self.client.table("teams").select("*").ilike("name", identifier).limit(1).execute()
+            response = self._require_supabase_client().table("teams").select("*").ilike("name", identifier).limit(1).execute()
             if response.data:
                 return response.data[0]
         except Exception:
@@ -305,23 +381,34 @@ class Database:
 
     def _fetch_membership(self, user_id: str, team_id: str) -> Optional[Dict[str, Any]]:
         client = self._require_supabase_client()
-        try:
-            response = (
-                client.table("users_teams")
-                .select("user_id, team_id, role, invited_by, joined_at")
-                .eq("user_id", user_id)
-                .eq("team_id", team_id)
-                .limit(1)
-                .execute()
-            )
-        except Exception as exc:
-            raise TeamServiceUnavailable("Failed to fetch team membership.") from exc
+        while True:
+            columns = ["user_id", "team_id", "joined_at"]
+            if self.supports_user_team_role:
+                columns.append("role")
+            if self.supports_user_team_invited_by:
+                columns.append("invited_by")
+            try:
+                response = (
+                    client.table("users_teams")
+                    .select(", ".join(columns))
+                    .eq("user_id", user_id)
+                    .eq("team_id", team_id)
+                    .limit(1)
+                    .execute()
+                )
+                break
+            except Exception as exc:
+                if self._handle_users_team_column_error(exc):
+                    continue
+                raise TeamServiceUnavailable("Failed to fetch team membership.") from exc
 
         if not response.data:
             return None
         return response.data[0]
 
     def _assert_role(self, team_id: str, allowed_roles: Iterable[str]) -> None:
+        if not self.supports_user_team_role:
+            return  # Legacy schema has no role concept; allow operation
         user_id = self._require_user_id()
         membership = self._fetch_membership(user_id, team_id)
         if not membership or membership.get("role") not in set(allowed_roles):
@@ -346,23 +433,41 @@ class Database:
     def create_team(self, name: str, description: Optional[str] = None) -> str:
         client = self._require_supabase_client()
         user_id = self._require_user_id()
-        slug = self._unique_team_slug(name)
-        payload = {
-            "name": name,
-            "description": description,
-            "slug": slug,
-            "created_by": user_id,
-        }
 
-        try:
-            response = client.table("teams").insert(payload).execute()
-        except Exception as exc:
-            message = str(exc).lower()
-            if "duplicate" in message or "unique constraint" in message:
-                raise DuplicateResourceError("Team name already exists. Try a different name.") from exc
-            raise TeamServiceUnavailable("Failed to create team.") from exc
+        slug_value: Optional[str] = None
 
-        team = response.data[0] if response.data else self._fetch_team("slug", slug)
+        while True:
+            payload: Dict[str, Any] = {"name": name}
+
+            if description is not None and self.supports_team_description:
+                payload["description"] = description
+
+            if self.supports_team_slug:
+                slug_value = self._unique_team_slug(name)
+                if slug_value:
+                    payload["slug"] = slug_value
+
+            if self.supports_team_created_by:
+                payload["created_by"] = user_id
+
+            try:
+                response = client.table("teams").insert(payload).execute()
+                break
+            except Exception as exc:
+                if self._handle_slug_capability_error(exc) or self._handle_team_column_error(exc):
+                    continue
+                message = str(exc).lower()
+                if "duplicate" in message or "unique constraint" in message:
+                    raise DuplicateResourceError("Team name already exists. Try a different name.") from exc
+                raise TeamServiceUnavailable("Failed to create team.") from exc
+
+        team = None
+        if response.data:
+            team = response.data[0]
+        if not team and slug_value:
+            team = self._fetch_team("slug", slug_value)
+        if not team:
+            team = self._fetch_team("name", name)
         if not team:
             raise TeamServiceUnavailable("Supabase did not return the created team.")
 
@@ -396,30 +501,49 @@ class Database:
     def list_user_teams(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         client = self._require_supabase_client()
         target_user_id = user_id or self._require_user_id()
-        try:
-            membership_resp = (
-                client.table("users_teams")
-                .select("team_id, role, joined_at")
-                .eq("user_id", target_user_id)
-                .execute()
-            )
-        except Exception as exc:
-            raise TeamServiceUnavailable("Failed to load team memberships.") from exc
+        while True:
+            membership_columns = ["team_id", "joined_at"]
+            if self.supports_user_team_role:
+                membership_columns.insert(1, "role")
+            if self.supports_user_team_invited_by:
+                membership_columns.append("invited_by")
+            try:
+                membership_resp = (
+                    client.table("users_teams")
+                    .select(", ".join(membership_columns))
+                    .eq("user_id", target_user_id)
+                    .execute()
+                )
+                break
+            except Exception as exc:
+                if self._handle_users_team_column_error(exc):
+                    continue
+                raise TeamServiceUnavailable("Failed to load team memberships.") from exc
 
         memberships = membership_resp.data or []
         if not memberships:
             return []
 
         team_ids = [row["team_id"] for row in memberships]
-        try:
-            teams_resp = (
-                client.table("teams")
-                .select("id, name, slug, description, created_at, updated_at")
-                .in_("id", team_ids)
-                .execute()
-            )
-        except Exception as exc:
-            raise TeamServiceUnavailable("Failed to fetch teams.") from exc
+        while True:
+            columns = ["id", "name", "description", "created_at", "updated_at"]
+            if self.supports_team_slug:
+                columns.insert(2, "slug")
+            try:
+                teams_resp = (
+                    client.table("teams")
+                    .select(", ".join(columns))
+                    .in_("id", team_ids)
+                    .execute()
+                )
+                break
+            except Exception as exc:
+                handled = False
+                if self._handle_slug_capability_error(exc) or self._handle_team_column_error(exc):
+                    handled = True
+                if handled:
+                    continue
+                raise TeamServiceUnavailable("Failed to fetch teams.") from exc
 
         team_map = {team["id"]: team for team in teams_resp.data or []}
 
@@ -448,13 +572,17 @@ class Database:
         payload: Dict[str, Any] = {}
         if "name" in updates and updates["name"]:
             payload["name"] = updates["name"]
-            payload["slug"] = self._unique_team_slug(updates["name"], exclude_team_id=team_id)
+            slug_candidate = self._unique_team_slug(updates["name"], exclude_team_id=team_id)
+            if slug_candidate:
+                payload["slug"] = slug_candidate
 
         if "description" in updates:
             payload["description"] = updates["description"]
 
-        if "slug" in updates and updates["slug"]:
-            payload["slug"] = self._unique_team_slug(updates["slug"], exclude_team_id=team_id)
+        if "slug" in updates and updates["slug"] and self.supports_team_slug:
+            slug_candidate = self._unique_team_slug(updates["slug"], exclude_team_id=team_id)
+            if slug_candidate:
+                payload["slug"] = slug_candidate
 
         if not payload:
             return False
@@ -510,23 +638,27 @@ class Database:
         invited_by: Optional[str] = None,
     ) -> bool:
         client = self._require_supabase_client()
-        payload = {
-            "user_id": user_id,
-            "team_id": team_id,
-            "role": role,
-            "invited_by": invited_by,
-            "joined_at": datetime.now(timezone.utc).isoformat(),
-        }
-        payload = {k: v for k, v in payload.items() if v is not None}
+        while True:
+            payload = {
+                "user_id": user_id,
+                "team_id": team_id,
+                "joined_at": datetime.now(timezone.utc).isoformat(),
+            }
+            if self.supports_user_team_role:
+                payload["role"] = role
+            if self.supports_user_team_invited_by and invited_by:
+                payload["invited_by"] = invited_by
 
-        try:
-            client.table("users_teams").insert(payload).execute()
-            return True
-        except Exception as exc:
-            message = str(exc).lower()
-            if "duplicate" in message or "unique constraint" in message:
-                raise DuplicateResourceError("User is already a member of this team.") from exc
-            raise TeamServiceUnavailable("Failed to add user to team.") from exc
+            try:
+                client.table("users_teams").insert(payload).execute()
+                return True
+            except Exception as exc:
+                if self._handle_users_team_column_error(exc):
+                    continue
+                message = str(exc).lower()
+                if "duplicate" in message or "unique constraint" in message:
+                    raise DuplicateResourceError("User is already a member of this team.") from exc
+                raise TeamServiceUnavailable("Failed to add user to team.") from exc
 
     def remove_user_from_team(self, user_id: str, team_id: str) -> bool:
         current_user_id = self._require_user_id()
@@ -548,15 +680,24 @@ class Database:
 
     def get_team_members(self, team_id: str) -> List[Dict[str, Any]]:
         client = self._require_supabase_client()
-        try:
-            membership_resp = (
-                client.table("users_teams")
-                .select("user_id, role, joined_at")
-                .eq("team_id", team_id)
-                .execute()
-            )
-        except Exception as exc:
-            raise TeamServiceUnavailable("Failed to load team members.") from exc
+        while True:
+            membership_columns = ["user_id", "joined_at"]
+            if self.supports_user_team_role:
+                membership_columns.insert(1, "role")
+            if self.supports_user_team_invited_by:
+                membership_columns.append("invited_by")
+            try:
+                membership_resp = (
+                    client.table("users_teams")
+                    .select(", ".join(membership_columns))
+                    .eq("team_id", team_id)
+                    .execute()
+                )
+                break
+            except Exception as exc:
+                if self._handle_users_team_column_error(exc):
+                    continue
+                raise TeamServiceUnavailable("Failed to load team members.") from exc
 
         memberships = membership_resp.data or []
         if not memberships:
@@ -685,6 +826,10 @@ class Database:
     ) -> Dict[str, Any]:
         self._assert_role(team_id, {"owner", "admin"})
         inviter_id = self._require_user_id()
+        if not self.supports_team_invitations:
+            raise TeamServiceUnavailable(
+                "Team invitations require the latest Supabase migration. Apply the migration to enable invite codes."
+            )
         client = self._require_supabase_client()
 
         code = invite_code or generate_invite_code()
@@ -705,7 +850,11 @@ class Database:
                 raise DuplicateResourceError("An active invitation already exists for this email.")
         except DuplicateResourceError:
             raise
-        except Exception:
+        except Exception as exc:
+            if self._handle_invitations_error(exc):
+                raise TeamServiceUnavailable(
+                    "Team invitations require the latest Supabase migration. Apply the migration to enable invite codes."
+                )
             # Ignore lookup errors—still try to insert.
             pass
 
@@ -721,6 +870,10 @@ class Database:
         try:
             response = client.table("team_invitations").insert(payload).execute()
         except Exception as exc:
+            if self._handle_invitations_error(exc):
+                raise TeamServiceUnavailable(
+                    "Team invitations require the latest Supabase migration. Apply the migration to enable invite codes."
+                )
             message = str(exc).lower()
             if "duplicate" in message or "unique constraint" in message:
                 raise DuplicateResourceError("Invitation code already in use.") from exc
@@ -730,6 +883,10 @@ class Database:
 
     def list_team_invitations(self, team_id: str) -> List[Dict[str, Any]]:
         self._assert_role(team_id, {"owner", "admin"})
+        if not self.supports_team_invitations:
+            raise TeamServiceUnavailable(
+                "Team invitations require the latest Supabase migration. Apply the migration to enable invite codes."
+            )
         client = self._require_supabase_client()
         try:
             response = (
@@ -740,11 +897,19 @@ class Database:
                 .execute()
             )
         except Exception as exc:
+            if self._handle_invitations_error(exc):
+                raise TeamServiceUnavailable(
+                    "Team invitations require the latest Supabase migration. Apply the migration to enable invite codes."
+                )
             raise TeamServiceUnavailable("Failed to list team invitations.") from exc
 
         return response.data or []
 
     def revoke_team_invitation(self, code: str) -> bool:
+        if not self.supports_team_invitations:
+            raise TeamServiceUnavailable(
+                "Team invitations require the latest Supabase migration. Apply the migration to enable invite codes."
+            )
         try:
             response = (
                 self._require_supabase_client().table("team_invitations")
@@ -753,12 +918,20 @@ class Database:
                 .execute()
             )
         except Exception as exc:
+            if self._handle_invitations_error(exc):
+                raise TeamServiceUnavailable(
+                    "Team invitations require the latest Supabase migration. Apply the migration to enable invite codes."
+                )
             raise TeamServiceUnavailable("Failed to revoke invitation.") from exc
 
         return bool(response.data)
 
     def accept_team_invitation(self, code: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         target_user_id = user_id or self._require_user_id()
+        if not self.supports_team_invitations:
+            raise TeamServiceUnavailable(
+                "Team invitations require the latest Supabase migration. Apply the migration to enable invite codes."
+            )
         client = self._require_supabase_client()
 
         try:
@@ -770,6 +943,10 @@ class Database:
                 .execute()
             )
         except Exception as exc:
+            if self._handle_invitations_error(exc):
+                raise TeamServiceUnavailable(
+                    "Team invitations require the latest Supabase migration. Apply the migration to enable invite codes."
+                )
             raise TeamServiceUnavailable("Failed to look up invitation.") from exc
 
         if not response.data:

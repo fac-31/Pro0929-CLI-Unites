@@ -172,6 +172,10 @@ cd Pro0929-CLI-Unites
 uv venv
 source .venv/bin/activate
 
+# Fix for editable install issue (see Troubleshooting below)
+ln -sf $(pwd)/notes_wrapper.py .venv/bin/notes
+
+
 # Install dependencies
 uv pip install -e '.[test]'
 ```

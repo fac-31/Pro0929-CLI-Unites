@@ -6,7 +6,7 @@ import logging
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlparse
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 import threading
 from ..database.create_client import supabase
 from .config import ConfigManager
@@ -96,6 +96,13 @@ class AuthManager:
         self.config = config or ConfigManager()
         self._session: Any = None
 
+    # --- Helpers -----------------------------------------------------------
+    @staticmethod
+    def _env_tokens() -> Tuple[Optional[str], Optional[str]]:
+        access = os.getenv("SUPABASE_ACCESS_TOKEN")
+        refresh = os.getenv("SUPABASE_REFRESH_TOKEN")
+        return access, refresh
+
     # --- Session helpers -------------------------------------------------
     def store_session(self, session: Any) -> None:
         """Persist auth session tokens locally."""
@@ -137,11 +144,18 @@ class AuthManager:
         user = _get_attr(session, "user")
         user_id = _get_attr(user, "id") if user else None
         if user_id:
+            # Ensure we have a matching row in the Supabase users table.
+            self.ensure_user_exists(user_to_dict(user) if not isinstance(user, dict) else user)
             self.config.update({"current_user_id": user_id})
         return user_id
 
     def refresh_user_session(self) -> bool:
         """Attempt to refresh the Supabase session using the stored refresh token."""
+        env_access, _ = self._env_tokens()
+        if env_access:
+            # Environment-driven sessions are static tokens; nothing to refresh.
+            return False
+
         auth_client = getattr(self.client, "auth", None)
         if auth_client is None:
             logger.debug("Supabase client has no auth attribute; cannot refresh session.")
@@ -234,8 +248,9 @@ class AuthManager:
         except Exception:
             pass
 
-        access_token = self.config.get("auth_token")
-        refresh_token = self.config.get("refresh_token")
+        env_access, env_refresh = self._env_tokens()
+        access_token = env_access or self.config.get("auth_token")
+        refresh_token = env_refresh if env_access else self.config.get("refresh_token")
         if access_token and refresh_token:
             try:
                 result = auth_client.set_session(access_token, refresh_token)
