@@ -1047,6 +1047,16 @@ class Database:
         if project_path and self.mode != "sqlite":
             project_id = self._ensure_project(project_path, team_id)
 
+        # Resolve team identifier if possible
+        team_uuid: Optional[str] = None
+        if team_id:
+            try:
+                team_uuid = self._resolve_team_id(team_id)
+            except TeamServiceUnavailable:
+                team_uuid = None
+            if not team_uuid and is_uuid(team_id):
+                team_uuid = team_id
+
         # Insert the note
         user_id = self._require_user_id()
         note_data = {
@@ -1056,8 +1066,25 @@ class Database:
             "user_id": user_id,
             "project_id": project_id,
         }
+        if team_uuid and self.supports_note_team_id:
+            note_data["team_id"] = team_uuid
 
-        response = self._require_supabase_client().table("notes").insert(note_data).execute()
+        client = self._require_supabase_client()
+        while True:
+            try:
+                response = client.table("notes").insert(note_data).execute()
+                break
+            except Exception as exc:
+                if "queue" in str(exc).lower():  # unrelated errors -> raise
+                    raise
+                if "duplicate" in str(exc).lower() and "id" in str(exc).lower():
+                    note_data["id"] = str(uuid4())
+                    note_id = note_data["id"]
+                    continue
+                if self._handle_notes_column_error(exc):
+                    note_data.pop("team_id", None)
+                    continue
+                raise TeamServiceUnavailable(f"Failed to add note: {exc}") from exc
 
         # Handle tags if provided
         if tags:
