@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 
-
+import sys
 import rich_click as click
 from rich_click import rich_click
 from dotenv import load_dotenv, find_dotenv

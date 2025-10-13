@@ -56,6 +56,7 @@ def add(title: str, body: str | None, allow_empty: bool, tags: Iterable[str]) ->
         raise click.Abort()
 
     manager = ConfigManager()
+    config = manager.as_dict()
     current_team = manager.get_current_team()
 
     git_context = get_git_context()
