@@ -27,6 +27,30 @@ CONFIG_FILENAME = "config.json"
 CONFIG_VERSION = 2
 RECENT_TEAMS_LIMIT = 5
 
+ENV_SUPABASE_URL = os.getenv("SUPABASE_URL")
+ENV_SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+ENV_SUPABASE_REALTIME_URL = os.getenv("SUPABASE_REALTIME_URL")
+ENV_SUPABASE_REALTIME_CHANNEL = os.getenv("SUPABASE_REALTIME_CHANNEL")
+ENV_SUPABASE_NOTE_TABLE = os.getenv("SUPABASE_NOTE_TABLE")
+ENV_SUPABASE_MESSAGE_TABLE = os.getenv("SUPABASE_MESSAGE_TABLE")
+ENV_RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+ENV_EMAIL_SERVICE = os.getenv("CLI_UNITES_EMAIL_SERVICE")
+ENV_EMAIL_FROM = os.getenv("CLI_UNITES_EMAIL_FROM")
+ENV_EMAIL_FROM_NAME = os.getenv("CLI_UNITES_EMAIL_FROM_NAME")
+ENV_EMAIL_ENABLED = os.getenv("CLI_UNITES_EMAIL_ENABLED")
+
+def _default_email_service() -> str:
+    if ENV_EMAIL_SERVICE:
+        return ENV_EMAIL_SERVICE.lower()
+    if ENV_RESEND_API_KEY:
+        return "resend"
+    return "none"
+
+def _default_email_enabled() -> bool:
+    if ENV_EMAIL_ENABLED is not None:
+        return ENV_EMAIL_ENABLED.lower() in {"1", "true", "yes", "on"}
+    return bool(ENV_RESEND_API_KEY and ENV_EMAIL_FROM)
+
 DEFAULT_CONFIG: Dict[str, Any] = {
     "config_version": CONFIG_VERSION,
     "auth_token": None,
@@ -39,14 +63,20 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "team_membership_cache": {},
     "team_permissions": {},
     "last_team_sync": None,
-    "supabase_url": os.getenv("SUPABASE_URL"),
-    "supabase_key": os.getenv("SUPABASE_KEY"),
-    "supabase_realtime_url": os.getenv("SUPABASE_REALTIME_URL"),
-    "supabase_realtime_channel": os.getenv("SUPABASE_REALTIME_CHANNEL") or "realtime:public:notes",
-    "supabase_note_table": os.getenv("SUPABASE_NOTE_TABLE") or "notes",
-    "supabase_message_table": os.getenv("SUPABASE_MESSAGE_TABLE") or "messages",
+    "supabase_url": ENV_SUPABASE_URL,
+    "supabase_key": ENV_SUPABASE_KEY,
+    "supabase_realtime_url": ENV_SUPABASE_REALTIME_URL,
+    "supabase_realtime_channel": ENV_SUPABASE_REALTIME_CHANNEL or "realtime:public:notes",
+    "supabase_note_table": ENV_SUPABASE_NOTE_TABLE or "notes",
+    "supabase_message_table": ENV_SUPABASE_MESSAGE_TABLE or "messages",
     "team_history": [],  # Legacy list of team ids
     "first_run_completed": False,
+    "email_service": _default_email_service(),
+    "email_notifications_enabled": _default_email_enabled(),
+    "email_templates_enabled": True,
+    "email_from_address": ENV_EMAIL_FROM,
+    "email_from_name": ENV_EMAIL_FROM_NAME or "CLI-Unites",
+    "resend_api_key": ENV_RESEND_API_KEY,
 }
 
 
@@ -125,7 +155,17 @@ class ConfigManager:
             elif key == "supabase_note_table":
                 value = os.getenv("SUPABASE_NOTE_TABLE") or "notes"
             elif key == "supabase_message_table":
-                value = os.getenv("SUPABASE_MESSAGE_TABLE") or "messages"
+                value = ENV_SUPABASE_MESSAGE_TABLE or "messages"
+            elif key == "email_service":
+                value = _default_email_service()
+            elif key == "email_from_address":
+                value = ENV_EMAIL_FROM
+            elif key == "email_from_name":
+                value = ENV_EMAIL_FROM_NAME or "CLI-Unites"
+            elif key == "resend_api_key":
+                value = ENV_RESEND_API_KEY
+            elif key == "email_notifications_enabled":
+                value = _default_email_enabled()
         return value
 
     def set(self, key: str, value: Any) -> None:
@@ -182,6 +222,12 @@ class ConfigManager:
         data.setdefault("last_team_sync", None)
         data.setdefault("current_user_id", None)
         data.setdefault("session_expires_at", None)
+        data.setdefault("email_service", _default_email_service())
+        data.setdefault("email_notifications_enabled", _default_email_enabled())
+        data.setdefault("email_templates_enabled", True)
+        data.setdefault("email_from_address", ENV_EMAIL_FROM)
+        data.setdefault("email_from_name", ENV_EMAIL_FROM_NAME or "CLI-Unites")
+        data.setdefault("resend_api_key", ENV_RESEND_API_KEY)
 
         # Populate recent teams from legacy history when available.
         history = data.get("team_history") or []

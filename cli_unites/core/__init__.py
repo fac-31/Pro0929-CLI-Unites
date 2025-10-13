@@ -11,6 +11,7 @@ from .auth import (
     get_current_user_id,
     refresh_user_session,
 )
+from .email import EmailService, get_email_service
 from .output import (
     console,
     print_error,
@@ -38,6 +39,8 @@ __all__ = [
     "ensure_user_exists",
     "get_current_user_id",
     "refresh_user_session",
+    "EmailService",
+    "get_email_service",
     "console",
     "print_error",
     "print_success",

@@ -18,7 +18,9 @@ dependencies = [
     "vecs>=0.4.5",
     "deno>=0.0.1",
     "openai>=2.3.0",
-    "rich-click"
+    "rich-click",
+    "resend>=2.16.0",
+    "charset-normalizer>=3.4.3",
 ]
 
 [build-system]
