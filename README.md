@@ -7,7 +7,7 @@
 
 **Unite your team with query-able project notes**
 
-A command-line tool for capturing, organizing, and searching project knowledge across your team. Built with Supabase for cloud-based collaboration and automatic git context capture.
+A command-line tool for capturing, organizing, and searching project knowledge across your team. Built with SQLite for offline-first operation and automatic git context capture.
 
 ## Features
 
@@ -15,7 +15,7 @@ A command-line tool for capturing, organizing, and searching project knowledge a
 - 🔍 **Search**: Find notes by keyword across title, body, and tags
 - 📋 **List & Filter**: View notes with tag filtering and team isolation
 - 👥 **Team Management**: Organize notes by team with configurable defaults
-- 🔐 **Supabase Integration**: Cloud-based storage with PostgreSQL and vector search
+- 🔐 **Authentication**: Optional Supabase integration for team sync
 - 📊 **Activity Feed**: See recent notes and team activity
 - 🎨 **Rich UI**: Beautiful terminal output with Rich formatting
 
@@ -45,9 +45,10 @@ ln -sf $(pwd)/notes_wrapper.py .venv/bin/notes
    notes add "Project Setup" --body "How to set up the development environment"
    ```
 
-2. **Set your team**:
+2. **Create or switch to your team**:
    ```bash
-   notes team --set "my-team"
+   notes team create "my-team"
+   notes team switch "my-team"
    ```
 
 3. **Search for notes**:
@@ -119,15 +120,13 @@ Show recent notes for quick overview.
 ### `notes team`
 Manage team configuration.
 
-**Options:**
-- `--set TEXT`: Set default team ID
-- `--recent`: Show recently used team IDs
-
 **Examples:**
 ```bash
-notes team --set "my-team"
-notes team --recent
-notes team  # Show current team
+notes team create "my-team"          # Create a new team
+notes team list                      # View teams you belong to
+notes team switch "my-team"          # Switch CLI context
+notes team current                   # Show the active team
+notes team recent                    # Show recent teams
 ```
 
 ### `notes auth`
@@ -142,24 +141,22 @@ Configure authentication and sync settings.
 
 ## Data Storage
 
-- **Supabase Database**: All notes are stored in your Supabase PostgreSQL database
+- **Local Database**: SQLite database stored in `~/.cli-unites/notes.db`
 - **Git Integration**: Automatically captures commit hash, branch, and project path
 - **Team Isolation**: Notes can be organized by team with configurable defaults
-- **Cloud-First**: Requires Supabase connection for all operations
+- **Offline First**: Works completely offline; sync is optional
 
 ## Configuration
 
 Configuration is stored in `~/.cli-unites/config.json`. Key settings:
 
 - `team_id`: Default team for new notes
-- `supabase_url` & `supabase_key`: Required for database connection
+- `supabase_url` & `supabase_key`: Optional sync configuration
 - `first_run_completed`: Onboarding completion flag
 
 ## Environment Variables
 
-- `SUPABASE_URL`: Your Supabase project URL (required)
-- `SUPABASE_KEY`: Your Supabase service role key (required)
-- `USER_ID`: User ID for note attribution
+- `CLI_UNITES_DB_PATH`: Override database location
 - `CLI_UNITES_DISABLE_GIT`: Set to "1" to disable git context capture
 - `CLI_UNITES_SKIP_ONBOARDING`: Set to "1" to skip first-run setup
 
@@ -174,6 +171,10 @@ cd Pro0929-CLI-Unites
 # Create virtual environment with uv
 uv venv
 source .venv/bin/activate
+
+# Fix for editable install issue (see Troubleshooting below)
+ln -sf $(pwd)/notes_wrapper.py .venv/bin/notes
+
 
 # Install dependencies
 uv pip install -e '.[test]'
@@ -285,5 +286,4 @@ Apache 2.0 - see [LICENSE](LICENSE) for details.
 - Anna van Wingerden
 - Jaz Maslen  
 - Rich Couzens
-
 

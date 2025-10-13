@@ -7,6 +7,8 @@ venv
 .pytest_cache
 *.egg-info
 .DS_Store
+build/
+dist/
 supabase/.temp/
 supabase/.branches/
 supabase/seed.sql

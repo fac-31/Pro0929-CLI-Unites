@@ -9,5 +9,12 @@ from ..core.config import ConfigManager
 def logout() -> None:
     """Log out of your github account."""
     config = ConfigManager()
-    config.update({"auth_token": None, "refresh_token": None})
+    config.update(
+        {
+            "auth_token": None,
+            "refresh_token": None,
+            "session_expires_at": None,
+            "current_user_id": None,
+        }
+    )
     print_success("Successfully logged out and cleared authentication tokens.")
