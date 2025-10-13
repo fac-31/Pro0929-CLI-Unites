@@ -1,15 +1,10 @@
 """CLI entrypoint for cli-unites."""
 from __future__ import annotations
 
-import os
-import sys
-
 
 
 import rich_click as click
 from rich_click import rich_click
-from rich.console import Console
-from rich.theme import Theme
 from dotenv import load_dotenv, find_dotenv
 
 from .commands import register
@@ -19,7 +14,6 @@ from .core.output import ACCENT, SUBDUED, set_fullscreen_background
 # Load environment variables from .env file (searches up directory tree)
 load_dotenv(find_dotenv(usecwd=True))
 
-# Configure rich_click with our dark theme
 rich_click.TEXT_MARKUP = True
 rich_click.MAX_WIDTH = 100
 rich_click.STYLE_HELPTEXT = SUBDUED
@@ -52,10 +46,9 @@ import atexit
 atexit.register(_exit_fullscreen)
 
 
-@click.group(context_settings={"help_option_names": ["-h", "--help"]}, invoke_without_command=True)
-@click.pass_context
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option()
-def cli(ctx) -> None:
+def cli() -> None:
     """Unite your team with query-able project notes.
 
     **Popular commands**
@@ -65,10 +58,6 @@ def cli(ctx) -> None:
     • `notes search "keyword"`
     """
     run_onboarding()
-    
-    # If no subcommand, show help
-    if ctx.invoked_subcommand is None:
-        click.echo(ctx.get_help())
 
 
 register(cli)

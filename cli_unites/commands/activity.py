@@ -14,21 +14,20 @@ from ..models.note import Note
 def activity(team: str | None, limit: int) -> None:
     """Show recent notes for the current or selected team."""
     manager = ConfigManager()
-    config = manager.as_dict()
-    team_id = team or config.get("team_id")
+    team_identifier = team or manager.get_current_team()
 
     with get_connection() as db:
-        rows = db.list_notes(limit=limit, team_id=team_id)
+        rows = db.list_notes(limit=limit, team_id=team_identifier)
 
-        if not rows and team_id:
-            print_warning(f"No notes found for team {team_id}.")
+        if not rows and team_identifier:
+            print_warning(f"No notes found for team {team_identifier}.")
             return
         if not rows:
             rows = db.list_notes(limit=limit)
             if not rows:
                 print_warning("No notes recorded yet. Run `notes add` to create one.")
                 return
-            print_warning("No team set; showing recent notes across all teams.")
+            print_warning("No team selected; showing recent notes across all teams. Use `notes team switch` to pick one.")
 
         notes = [Note.from_row(row) for row in rows]
     console.print(display_notes_list(notes))

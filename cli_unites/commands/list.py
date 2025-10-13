@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 
-import click
+import rich_click as click
 
 
 from ..core import console, print_warning, display_notes_list, display_note_view
@@ -19,17 +19,14 @@ from ..models.note import Note
 def list_notes(tag: str | None, limit: int | None, team: str | None, fullscreen: bool = False) -> None:
     """List stored notes."""
     manager = ConfigManager()
-    team_id = team or manager.get("team_id")
-    if not team_id:
-        print_warning(
-            "No team configured. Set one with `notes team --set <name>` or pass `--team`."
-        )
-        return
+    team_identifier = team or manager.get_current_team()
     with get_connection() as db:
-        rows = db.list_notes(limit=limit, tag=tag, team_id=team_id)
+        rows = db.list_notes(limit=limit, tag=tag, team_id=team_identifier)
     if not rows:
         print_warning("No notes found.")
         return
+    if not team_identifier:
+        print_warning("No team selected; showing recent notes across all teams. Use `notes team switch` to scope results.")
     notes = [Note.from_row(row) for row in rows]
     
     display_notes_list(

@@ -49,6 +49,33 @@ def search_team_notes(self, team_id: str, query: str) -> List[Dict[str, Any]]
 def get_team_activity(self, team_id: str, limit: int = 10) -> List[Dict[str, Any]]
 ```
 
+**Supabase schema updates (migration)**  
+- Extend `teams` with `description text`, `slug text unique`, `created_by uuid references users(id)`, and `updated_at timestamptz default now()`.  
+- Alter `users_teams` to include `role text default 'member'` and `invited_by uuid`. Add indices on `(team_id, role)` and `(user_id, role)` for quick lookups.  
+- Create `team_invitations` with columns: `code text primary key`, `team_id uuid references teams(id)`, `email text not null`, `role text default 'member'`, `invited_by uuid references users(id)`, `expires_at timestamptz`, `redeemed_at timestamptz`, and `metadata jsonb`.  
+- Add database trigger to keep `teams.updated_at` fresh on updates.  
+- Add utility SQL function `util.generate_invite_code(length int default 6)` (returns unique uppercase string) for invite generation.
+
+**Implementation steps**  
+1. Introduce typed response helpers in `db.py` (e.g. `TeamRecord`, `TeamMemberRecord`) to normalize Supabase responses and hide JSON structure differences between real API and test fixtures.  
+2. Wire `create_team` to: (a) ensure the current user exists, (b) generate a slug via `slugify(name)` with collision handling, (c) insert the team, (d) automatically add the creator to `users_teams` as `owner`, and (e) return the newly created UUID.  
+3. Implement `get_team` with a single RPC that eagerly joins basic metadata (team, owner info, member counts). Cache results in-memory for the duration of the CLI run to avoid repeat fetches.  
+4. Implement `list_user_teams`/`get_user_teams` using a shared private helper that accepts a `user_id` and optional filters (`include_roles`, `only_active=True`). Include the user's role and last activity timestamp in each result.  
+5. Implement `update_team` allowing updates to `name`, `description`, and `slug`. Enforce unique slug and update `updated_at`. Emit a structured error if the caller is not an `owner`/`admin`.  
+6. Implement `delete_team` to perform a soft-delete initially (set `deleted_at`) and return a boolean. Actual hard deletes can be deferred to a background cleanup task. Ensure the caller must be `owner`.  
+7. For membership operations, wrap Supabase errors (constraint violations, duplicates) in custom exceptions so CLI commands can translate them to user-friendly messages.
+
+**Error handling & resilience**  
+- Treat Supabase `409` (duplicate) as a friendly message: “Team name already exists—try a different name.”  
+- Surface invitation expiry clearly (`expires_at < now()`).  
+- When Supabase is unavailable, raise a `TeamServiceUnavailable` error with retry metadata so CLI can suggest `--retry` later.
+
+**Testing strategy**  
+- Unit tests for each public method using pytest + `responses` to mock Supabase REST calls.  
+- Integration smoke test hitting the local Supabase docker stack (ensure docker-compose recipe is documented).  
+- Regression test ensuring `search_team_notes` falls back to local search if Supabase vector search returns 404 (e.g., extension missing).  
+- Contract test verifying invite codes are unique and 6 characters long.
+
 #### 1.2 User Management Integration
 **File**: `cli_unites/core/auth.py`
 
@@ -64,6 +91,22 @@ def get_current_user_id(self) -> Optional[str]:
 def refresh_user_session(self) -> bool:
     """Refresh expired authentication tokens."""
 ```
+
+**Implementation details**  
+- Wrap the Supabase Python client so we store the active session (`self.session`) and user metadata (`self.session.user`).  
+- `ensure_user_exists` should look up the user by Supabase auth UUID; if absent, insert into `users` with `email`, `full_name`, and `avatar_url` (if available). Update the record when profile details change. Return the users table UUID (identical to auth UUID).  
+- `get_current_user_id` first checks cached session, then falls back to reading `~/.cli-unites/session.json` (existing behavior). Return `None` if not authenticated and let CLI commands gate on that.  
+- `refresh_user_session` calls `supabase.auth.refresh_session()`; when successful, persist the new tokens and update expiry. Handle `AuthApiError` explicitly—if refresh fails, remove cached session and prompt the CLI to re-run login.
+
+**Edge cases**  
+- Supabase returns `401` after refresh attempt: bubble up `AuthExpiredError` so CLI can exit with “Please re-authenticate: notes login”.  
+- Users table out-of-sync (e.g., user deleted manually): recreate record during `ensure_user_exists` and log a warning.  
+- Support headless environments by allowing `SUPABASE_ACCESS_TOKEN` fallback when no interactive browser is possible.
+
+**Testing**  
+- Mock Supabase auth client to simulate expired tokens and ensure refresh flow is triggered.  
+- Round-trip test ensures user metadata is updated when GitHub profile changes.  
+- CLI smoke test: `notes team current` should fail gracefully when unauthenticated.
 
 #### 1.3 Enhanced Team Commands (Simplified)
 **File**: `cli_unites/commands/team.py`
@@ -100,6 +143,31 @@ notes team join <invite_code>  # Accept invitation (creates team if needed)
 - **Invite codes**: Simple codes instead of complex UUID-based invitations
 - **Consolidated commands**: Fewer command groups, more intuitive
 
+**Command architecture**  
+- Rebuild `team` command as a Click group with subcommands. Share options via decorators (`@pass_context`) to reuse Supabase/auth clients.  
+- Introduce `TeamResolver` helper that accepts `team_name_or_id` and returns `(team_id, display_name)`. It should:  
+  - Try UUID parse; if fails, look up slug/name using cached membership list.  
+  - Support fuzzy matches (e.g., case-insensitive).  
+  - Provide actionable error suggestions (“Did you mean backend-team?”).  
+- Maintain a local MRU list (`ConfigManager.recent_teams`) updated on every successful command that touches a team.
+
+**CLI flows**  
+- `notes team create`: prompt for description if `--description` omitted, auto-set current team, print invite command.  
+- `notes team list`: default to `--mine`; `--all` only for admins (requires `TeamPermissions`). Show current team indicator and roles in a table layout.  
+- `notes team switch`: update config and confirm with friendly message; optionally display team summary pulled from cache.  
+- `notes team invite`: generate code through `Database.create_team_invitation(...)`, optionally send email (Phase 1.5). Display expiry and instructions.  
+- `notes team join`: accept invite, set as current team, display success message and hint to run `notes list`.
+
+**Error copy & messaging**  
+- Use `print_error`/`print_warning` with consistent prefixes (`Team:`).  
+- Provide `--json` flag on list/show for scripting.  
+- When invite creation fails due to duplicate email, warn that an active invite already exists and show the code if possible.
+
+**Testing**  
+- CLI unit tests via Click’s `CliRunner` covering each command path (create/list/show/update/delete/invite/join).  
+- Snapshot tests for textual output (using `approvals` or `pytest-regressions`).  
+- Integration smoke: run `notes team create` followed by `notes team members` against Supabase test stack to ensure end-to-end flow works.
+
 #### 1.4 Configuration Updates
 **File**: `cli_unites/core/config.py`
 
@@ -113,6 +181,30 @@ DEFAULT_CONFIG.update({
     "last_team_sync": None,  # Timestamp of last team sync
 })
 ```
+
+**Implementation notes**  
+- Bump config schema version (e.g., `CONFIG_VERSION = 2`) and add migration logic so existing users automatically receive the new keys without wiping preferences.  
+- Store `recent_teams` as an ordered list of `{id, name, switched_at}` entries capped at 5.  
+- Cache membership (`team_membership_cache`) keyed by `user_id`, value includes `teams`, `roles`, and `last_fetched`. Use TTL (15 minutes) and persist to disk to reduce Supabase calls.  
+- `team_permissions` should capture role-derived permissions (`{"team_id": {"role": "admin", "actions": [...]}}`) and is refreshed whenever membership changes.  
+- `last_team_sync` updated after a successful sync to throttle background refresh jobs.
+
+**Migration strategy**  
+- On config load, detect missing keys and backfill defaults. Log a one-time info message (“Upgrading config with team support…”).  
+- Provide `notes doctor config` command update to validate config integrity (Phase 1 includes CLI message, implementation can land later).  
+- Ensure config writes remain atomic by using temp file + `os.replace`.
+
+**Testing**  
+- Unit tests covering config migration from version 1 to 2.  
+- Verify config cache invalidates when user switches teams.  
+- Simulate corrupted config file to ensure recovery path still works.
+
+#### Phase 1 Execution Checklist
+- **Dependencies**: Supabase migration applied; Python client updated with new methods; Click CLI upgraded to latest minor release if required.  
+- **Feature flags**: Gate new team commands behind `ENABLE_TEAM_MANAGEMENT` env flag for the first release; default on once smoke tests pass.  
+- **Documentation**: Update `README.md` with new commands, add `notes team --help` examples, record short loom demo for internal QA.  
+- **QA**: Run end-to-end script (`scripts/e2e/team_phase1.sh`) that provisions a fresh user, creates a team, invites a second user (mock), and validates membership list output.  
+- **Support readiness**: Add troubleshooting section to docs, including common Supabase error codes and recovery steps.
 
 ### Phase 1.5: Email Service Integration with Resend (Week 2.5)
 

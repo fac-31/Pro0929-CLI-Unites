@@ -4,7 +4,7 @@ import os
 import sys
 from typing import Iterable
 
-import click
+import rich_click as click
 
 from ..core import (
     console,
@@ -56,8 +56,7 @@ def add(title: str, body: str | None, allow_empty: bool, tags: Iterable[str]) ->
         raise click.Abort()
 
     manager = ConfigManager()
-    config = manager.as_dict()
-    current_team = config.get("team_id")
+    current_team = manager.get_current_team()
 
     git_context = get_git_context()
     with get_connection() as db:
