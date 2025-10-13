@@ -9,7 +9,14 @@ import rich_click as click
 from rich import box
 from rich.table import Table
 
-from ..core import console, print_error, print_success, print_warning
+from ..core import (
+    console,
+    print_error,
+    print_success,
+    print_warning,
+    get_email_service,
+    get_auth_manager,
+)
 from ..core.auth import get_auth_manager
 from ..core.config import ConfigManager
 from ..core.db import (
@@ -368,6 +375,31 @@ def invite_member(email: str, role: str, team_identifier: Optional[str], expires
     print_success(f"Invitation created for {email}. Code: {invite['code']}")
     print_success(f"Expires at {_format_timestamp(invite.get('expires_at'))}")
 
+    service = get_email_service()
+    if service:
+        auth_manager = get_auth_manager()
+        current_user = auth_manager.get_current_user() or {}
+        inviter_name = (
+            (current_user.get("user_metadata") or {}).get("full_name")
+            or current_user.get("full_name")
+            or current_user.get("email")
+            or "A teammate"
+        )
+        if service.send_invitation_email(
+            email=email,
+            team_name=team.get("name") or team["id"],
+            inviter_name=inviter_name,
+            invite_code=invite["code"],
+            expires_at=invite.get("expires_at"),
+        ):
+            print_success("Invitation email sent.")
+        else:
+            print_warning("Email service configured but sending failed. Share the invite code manually.")
+    else:
+        print_warning(
+            "Email service not configured. Share the invite code manually or run 'notes email setup'."
+        )
+
 
 @team.command("invitations")
 @click.option("--team", "team_identifier", help="Which team to show invitations for.")
@@ -423,6 +455,11 @@ def join_team(code: str) -> None:
 
     name = team.get("name") if team else result["team_id"]
     print_success(f"Joined team '{name}'.")
+
+    service = get_email_service()
+    if service and result.get("user_email") and team:
+        if service.send_welcome_email(result["user_email"], team.get("name") or name):
+            print_success(f"Welcome email sent to {result['user_email']}.")
 
 
 @team.command("leave")

@@ -6,7 +6,6 @@ from typing import Iterable
 
 from click import Group
 
-from .activity import activity
 from .add import add
 from .auth import auth
 from .help import help_command
@@ -17,15 +16,17 @@ from .team import team
 from .login import login
 from .logout import logout  
 from .realtime import realtime
+from .email import email_group
 
 COMMANDS = (
     add,
     auth,
     list_notes,
-    semantic_search, team, 
+    semantic_search,
+    team,
+    email_group,
     realtime,
     help_command,
-    activity,
     onboarding,
     login,
     logout,
