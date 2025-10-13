@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import click
+import rich_click as click
 
 from ..core import console, print_warning, render_note_panel
 from ..core.db import get_connection

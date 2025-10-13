@@ -4,7 +4,7 @@ import os
 import sys
 from typing import Iterable
 
-import click
+import rich_click as click
 
 from ..core import (
     console,

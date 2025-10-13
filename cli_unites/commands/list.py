@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 
-import click
+import rich_click as click
 
 
 from ..core import console, print_warning, render_note_panel, render_notes_table

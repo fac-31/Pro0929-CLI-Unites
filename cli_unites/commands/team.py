@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import click
+import rich_click as click
 
 from ..core import print_success, print_warning
 from ..core.config import ConfigManager
