@@ -58,8 +58,7 @@ def add(title: str, body: str | None, allow_empty: bool, tags: Iterable[str]) ->
         raise click.Abort()
 
     manager = ConfigManager()
-    config = manager.as_dict()
-    current_team = config.get("team_id")
+    current_team = manager.get_current_team()
 
     git_context = get_git_context()
     with get_connection() as db:
@@ -82,8 +81,8 @@ def add(title: str, body: str | None, allow_empty: bool, tags: Iterable[str]) ->
     status_lines = ["[success]Saved to Supabase[/success]"]
 
     context_bits = []
-    if config.get("team_id"):
-        context_bits.append(f"Team: [note.title]{config['team_id']}[/note.title]")
+    if current_team:
+        context_bits.append(f"Team: [note.title]{current_team}[/note.title]")
     if git_context.get("branch"):
         context_bits.append(f"Branch: {git_context['branch']}")
     if git_context.get("commit"):

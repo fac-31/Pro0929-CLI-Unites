@@ -7,13 +7,14 @@ from ..core import console
 
 HELP_CONTENT = """[bold]cli-unites quick start[/bold]
 
-• [bold]Authentication[/bold]: `notes auth --token TOKEN --team-id TEAM`
+• [bold]Authentication[/bold]: `notes auth --token TOKEN`
 • [bold]Login[/bold]: `notes login`
 • [bold]Logout[/bold]: `notes logout`
+• [bold]Create Team[/bold]: `notes team create "Team Name"`
+• [bold]Switch Team[/bold]: `notes team switch my-team`
 • [bold]Add Note[/bold]: `notes add "Title" --body "Details"`
 • [bold]List Notes[/bold]: `notes list --tag release`
 • [bold]Search Notes[/bold]: `notes search "keyword"`
-• [bold]Switch Team[/bold]: `notes team --set my-team`
 • [bold]Team Activity[/bold]: `notes activity --limit 5`
 
 

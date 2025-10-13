@@ -42,7 +42,8 @@ def run_onboarding() -> None:
             [
                 "[bold]Welcome to cli-unites[/bold]",
                 "Get started with:",
-                "`notes team --set <team>`",
+                "`notes team create \"Team Name\"`",
+                "`notes team switch <team>`",
                 "`notes add \"Title\" --body \"...\"`",
                 "`notes list`",
             ],
@@ -89,7 +90,7 @@ def _guided_tour(manager: ConfigManager) -> None:
 
 
 def _ensure_team(manager: ConfigManager) -> str | None:
-    current_team = manager.get("team_id")
+    current_team = manager.get_current_team()
     console.print(
         render_status_panel(
             [
@@ -112,14 +113,14 @@ def _ensure_team(manager: ConfigManager) -> str | None:
 
     if not current_team:
         team_id = click.prompt(
-            "Enter a team id (e.g. awesome-squad)", default="", show_default=False
+            "Enter a team id or name (e.g. awesome-squad)", default="", show_default=False
         ).strip()
         if team_id:
-            manager.set("team_id", team_id)
+            manager.set_current_team(team_id)
             current_team = team_id
             print_success(f"Team set to {team_id}")
         else:
-            print_warning("No team selected. You can set one later with `notes team --set`.")
+            print_warning("No team selected. You can set one later with `notes team switch`.")
     return current_team
 
 

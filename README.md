@@ -45,9 +45,10 @@ ln -sf $(pwd)/notes_wrapper.py .venv/bin/notes
    notes add "Project Setup" --body "How to set up the development environment"
    ```
 
-2. **Set your team**:
+2. **Create or switch to your team**:
    ```bash
-   notes team --set "my-team"
+   notes team create "my-team"
+   notes team switch "my-team"
    ```
 
 3. **Search for notes**:
@@ -119,15 +120,13 @@ Show recent notes for quick overview.
 ### `notes team`
 Manage team configuration.
 
-**Options:**
-- `--set TEXT`: Set default team ID
-- `--recent`: Show recently used team IDs
-
 **Examples:**
 ```bash
-notes team --set "my-team"
-notes team --recent
-notes team  # Show current team
+notes team create "my-team"          # Create a new team
+notes team list                      # View teams you belong to
+notes team switch "my-team"          # Switch CLI context
+notes team current                   # Show the active team
+notes team recent                    # Show recent teams
 ```
 
 ### `notes auth`
@@ -283,5 +282,4 @@ Apache 2.0 - see [LICENSE](LICENSE) for details.
 - Anna van Wingerden
 - Jaz Maslen  
 - Rich Couzens
-
 
