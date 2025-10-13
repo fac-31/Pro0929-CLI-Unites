@@ -93,6 +93,7 @@ class Database:
         self.supports_user_team_role: bool = True
         self.supports_user_team_invited_by: bool = True
         self.supports_team_invitations: bool = True
+        self.supports_note_team_id: bool = True
 
         resolved_db_path = _resolve_db_path(db_path)
         if resolved_db_path is not None:
@@ -128,6 +129,7 @@ class Database:
         self.supports_user_team_role = False
         self.supports_user_team_invited_by = False
         self.supports_team_invitations = False
+        self.supports_note_team_id = False
 
     def _ensure_sqlite_schema(self) -> None:
         assert self.sqlite_conn is not None
@@ -301,6 +303,19 @@ class Database:
             if self.supports_team_invitations:
                 logger.info("Team invitations table missing; disabling invitation features.")
             self.supports_team_invitations = False
+            return True
+        return False
+
+    def _handle_notes_column_error(self, exc: Exception) -> bool:
+        message = str(exc).lower()
+        if (
+            self.supports_note_team_id
+            and "notes" in message
+            and "team_id" in message
+            and ("does not exist" in message or "unknown column" in message or "column" in message)
+        ):
+            self.supports_note_team_id = False
+            logger.info("Notes table lacks team_id column; falling back to project-based filtering.")
             return True
         return False
 
@@ -739,22 +754,31 @@ class Database:
         if self.mode == "sqlite":
             return self._sqlite_list_notes(limit=limit, tag=None, team_id=team_id)
 
-        project_ids = self._project_ids_for_team(team_id)
-        if not project_ids:
-            return []
-
+        client = self._require_supabase_client()
         query = (
-            self._require_supabase_client().table("notes")
+            client.table("notes")
             .select("*")
-            .in_("project_id", project_ids)
             .order("created_at", desc=True)
         )
+
+        if self.supports_note_team_id:
+            query = query.eq("team_id", team_id)
+
+        try:
+            project_ids = self._project_ids_for_team(team_id)
+        except Exception:
+            project_ids = None
+        if project_ids:
+            query = query.in_("project_id", project_ids)
+
         if limit:
             query = query.limit(limit)
 
         try:
             response = query.execute()
         except Exception as exc:
+            if self._handle_notes_column_error(exc):
+                return self.list_notes_for_team(team_id, limit=limit)
             raise TeamServiceUnavailable("Failed to list team notes.") from exc
 
         return response.data or []
@@ -763,27 +787,30 @@ class Database:
         if self.mode == "sqlite":
             return self._sqlite_search_notes(query_text, team_id)
 
-        project_ids = self._project_ids_for_team(team_id)
-        if not project_ids:
-            return []
+        client = self._require_supabase_client()
 
         try:
-            body_query = (
-                self._require_supabase_client().table("notes")
-                .select("*")
-                .text_search("body_tsv", query_text)
-                .in_("project_id", project_ids)
-                .order("created_at", desc=True)
-            ).execute()
+            project_ids = self._project_ids_for_team(team_id)
+        except Exception:
+            project_ids = None
 
-            title_query = (
-                self._require_supabase_client().table("notes")
-                .select("*")
-                .ilike("title", f"%{query_text}%")
-                .in_("project_id", project_ids)
-                .order("created_at", desc=True)
-            ).execute()
+        try:
+            body_query = client.table("notes").select("*").text_search("body_tsv", query_text)
+            if self.supports_note_team_id:
+                body_query = body_query.eq("team_id", team_id)
+            if project_ids:
+                body_query = body_query.in_("project_id", project_ids)
+            body_query = body_query.order("created_at", desc=True).execute()
+
+            title_query = client.table("notes").select("*").ilike("title", f"%{query_text}%")
+            if self.supports_note_team_id:
+                title_query = title_query.eq("team_id", team_id)
+            if project_ids:
+                title_query = title_query.in_("project_id", project_ids)
+            title_query = title_query.order("created_at", desc=True).execute()
         except Exception as exc:
+            if self._handle_notes_column_error(exc):
+                return self.search_team_notes(team_id, query_text)
             raise TeamServiceUnavailable("Failed to search team notes.") from exc
 
         seen_ids = set()
@@ -801,20 +828,27 @@ class Database:
             rows = self._sqlite_list_notes(limit=limit, tag=None, team_id=team_id)
             return rows
 
-        project_ids = self._project_ids_for_team(team_id)
-        if not project_ids:
-            return []
+        client = self._require_supabase_client()
+        try:
+            project_ids = self._project_ids_for_team(team_id)
+        except Exception:
+            project_ids = None
 
         try:
-            response = (
-                self._require_supabase_client().table("notes")
+            query = (
+                client.table("notes")
                 .select("id, title, updated_at, created_at, user_id, project_id")
-                .in_("project_id", project_ids)
                 .order("updated_at", desc=True)
                 .limit(limit)
-                .execute()
             )
+            if self.supports_note_team_id:
+                query = query.eq("team_id", team_id)
+            if project_ids:
+                query = query.in_("project_id", project_ids)
+            response = query.execute()
         except Exception as exc:
+            if self._handle_notes_column_error(exc):
+                return self.get_team_activity(team_id, limit=limit)
             raise TeamServiceUnavailable("Failed to load team activity.") from exc
 
         return response.data or []
@@ -1102,29 +1136,58 @@ class Database:
         if self.mode == "sqlite":
             return self._sqlite_list_notes(limit=limit, tag=tag, team_id=team_id)
 
-        project_ids: Optional[List[str]] = None
+        client = self._require_supabase_client()
+        query = client.table("notes").select("*")
+
+        resolved_team_id: Optional[str] = None
         if team_id:
             resolved_team_id = self._resolve_team_id(team_id)
             if not resolved_team_id:
-                return []
-            project_ids = self._project_ids_for_team(resolved_team_id)
-            if not project_ids:
-                return []
+                resolved_team_id = team_id  # fall back to provided identifier
+        if resolved_team_id:
+            if self.supports_note_team_id:
+                query = query.eq("team_id", resolved_team_id)
 
-        query = self._require_supabase_client().table("notes").select("*")
-        if project_ids:
-            query = query.in_("project_id", project_ids)
+            try:
+                project_ids = self._project_ids_for_team(resolved_team_id)
+            except Exception:
+                project_ids = None
+            if project_ids:
+                query = query.in_("project_id", project_ids)
 
         if tag:
-            # Join with tags to filter
-            query = query.eq("notes_tags.tags.name", tag)
+            try:
+                tag_rows = client.table("tags").select("id").eq("name", tag).limit(1).execute()
+            except Exception:
+                tag_rows = None
+            if not tag_rows or not tag_rows.data:
+                return []
+            tag_id = tag_rows.data[0]["id"]
+            try:
+                note_tag_rows = (
+                    client.table("notes_tags")
+                    .select("note_id")
+                    .eq("tag_id", tag_id)
+                    .execute()
+                )
+            except Exception:
+                note_tag_rows = None
+            note_ids = [row["note_id"] for row in (note_tag_rows.data if note_tag_rows and note_tag_rows.data else [])]
+            if not note_ids:
+                return []
+            query = query.in_("id", note_ids)
 
         query = query.order("created_at", desc=True)
 
         if limit:
             query = query.limit(limit)
 
-        response = query.execute()
+        try:
+            response = query.execute()
+        except Exception as exc:
+            if self._handle_notes_column_error(exc):
+                return self.list_notes(limit=limit, tag=tag, team_id=team_id)
+            raise TeamServiceUnavailable("Failed to list notes.") from exc
         return response.data or []
 
     def get_note(self, note_id: str) -> Optional[Dict[str, Any]]:
@@ -1139,28 +1202,42 @@ class Database:
         if self.mode == "sqlite":
             return self._sqlite_search_notes(query, team_id)
 
-        project_ids = None
+        client = self._require_supabase_client()
+
+        resolved_team_id: Optional[str] = None
         if team_id:
             resolved_team_id = self._resolve_team_id(team_id)
             if not resolved_team_id:
-                return []
-            project_ids = self._project_ids_for_team(resolved_team_id)
-            if not project_ids:
-                return []
+                resolved_team_id = team_id
 
-        client = self._require_supabase_client()
+        try:
+            project_ids = self._project_ids_for_team(resolved_team_id) if resolved_team_id else None
+        except Exception:
+            project_ids = None
 
-        # Full-text search using PostgreSQL's tsvector
         body_query = client.table("notes").select("*").text_search("body_tsv", query)
+        if resolved_team_id and self.supports_note_team_id:
+            body_query = body_query.eq("team_id", resolved_team_id)
         if project_ids:
             body_query = body_query.in_("project_id", project_ids)
-        response = body_query.order("created_at", desc=True).execute()
+        try:
+            response = body_query.order("created_at", desc=True).execute()
+        except Exception as exc:
+            if self._handle_notes_column_error(exc):
+                return self.search_notes(query, team_id)
+            raise TeamServiceUnavailable("Failed to search notes.") from exc
 
-        # Also search in title (case-insensitive)
         title_query = client.table("notes").select("*").ilike("title", f"%{query}%")
+        if resolved_team_id and self.supports_note_team_id:
+            title_query = title_query.eq("team_id", resolved_team_id)
         if project_ids:
             title_query = title_query.in_("project_id", project_ids)
-        title_results = title_query.order("created_at", desc=True).execute()
+        try:
+            title_results = title_query.order("created_at", desc=True).execute()
+        except Exception as exc:
+            if self._handle_notes_column_error(exc):
+                return self.search_notes(query, team_id)
+            raise TeamServiceUnavailable("Failed to search notes.") from exc
 
         # Combine and deduplicate results
         seen_ids = set()
