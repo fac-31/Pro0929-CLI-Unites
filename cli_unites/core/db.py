@@ -653,12 +653,17 @@ class Database:
                 client.table("users_teams").insert(payload).execute()
                 return True
             except Exception as exc:
+                message = str(exc).lower()
+                if "foreign key" in message and "users" in message:
+                    user_payload = self.auth_manager.get_current_user()
+                    if user_payload:
+                        self.auth_manager.ensure_user_exists(user_payload)
+                        continue
                 if self._handle_users_team_column_error(exc):
                     continue
-                message = str(exc).lower()
                 if "duplicate" in message or "unique constraint" in message:
                     raise DuplicateResourceError("User is already a member of this team.") from exc
-                raise TeamServiceUnavailable("Failed to add user to team.") from exc
+                raise TeamServiceUnavailable(f"Failed to add user to team: {exc}") from exc
 
     def remove_user_from_team(self, user_id: str, team_id: str) -> bool:
         current_user_id = self._require_user_id()

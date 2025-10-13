@@ -149,16 +149,6 @@ class AuthManager:
             self.config.update({"current_user_id": user_id})
         return user_id
 
-    def get_current_user(self) -> Optional[Dict[str, Any]]:
-        """Fetch the current user payload (dict) if available."""
-        session = self._get_or_load_session()
-        if not session:
-            return None
-        user = _get_attr(session, "user")
-        if not user:
-            return None
-        return user_to_dict(user) if not isinstance(user, dict) else user
-
     def refresh_user_session(self) -> bool:
         """Attempt to refresh the Supabase session using the stored refresh token."""
         env_access, _ = self._env_tokens()
@@ -210,18 +200,14 @@ class AuthManager:
         if not user_id:
             return None
 
-        profile_payload: Dict[str, Any] = {
-            "email": user_data.get("email"),
-        }
-        # Only include optional fields if they are present and we'll detect support dynamically.
         metadata = user_data.get("user_metadata") or {}
-        full_name = metadata.get("full_name") or user_data.get("full_name")
-        if full_name:
-            profile_payload["full_name"] = full_name
-        avatar = metadata.get("avatar_url")
-        if avatar:
-            profile_payload["avatar_url"] = avatar
-        profile_payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+        profile_payload = {
+            "email": user_data.get("email"),
+            "full_name": metadata.get("full_name") or user_data.get("full_name"),
+            "avatar_url": metadata.get("avatar_url"),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        profile_payload = {k: v for k, v in profile_payload.items() if v is not None}
 
         table_op = None
         try:
@@ -231,32 +217,16 @@ class AuthManager:
             self.config.update({"current_user_id": user_id})
             return user_id
 
-        optional_keys = ["avatar_url", "full_name", "updated_at"]
-
-        while True:
-            try:
-                existing = table_op.select("id").eq("id", user_id).execute()
-                if existing.data:
-                    if profile_payload:
-                        table_op.update(profile_payload).eq("id", user_id).execute()
-                else:
-                    insert_payload = {"id": user_id, **profile_payload}
-                    table_op.insert(insert_payload).execute()
-                break
-            except Exception as exc:
-                lowered = str(exc).lower()
-                handled = False
-                for key in list(optional_keys):
-                    if key in lowered and "column" in lowered:
-                        profile_payload.pop(key, None)
-                        optional_keys.remove(key)
-                        handled = True
-                        logger.info("Dropping optional profile column '%s' due to Supabase schema", key)
-                        break
-                if handled:
-                    continue
-                logger.warning("Failed to sync user profile with Supabase: %s", exc)
-                break
+        try:
+            existing = table_op.select("id").eq("id", user_id).execute()
+            if existing.data:
+                if profile_payload:
+                    table_op.update(profile_payload).eq("id", user_id).execute()
+            else:
+                insert_payload = {"id": user_id, **profile_payload}
+                table_op.insert(insert_payload).execute()
+        except Exception as exc:
+            logger.warning("Failed to sync user profile with Supabase: %s", exc)
 
         self.config.update({"current_user_id": user_id})
         return user_id
