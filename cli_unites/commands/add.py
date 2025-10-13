@@ -26,7 +26,7 @@ from ..models.note import Note
 @click.option("--allow-empty", is_flag=True, help="Permit saving an empty note body.")
 @click.option("-t", "--tag", "tags", multiple=True, help="Attach one or more tags to the note.")
 def add(title: str, body: str | None, allow_empty: bool, tags: Iterable[str]) -> None:
-    """Add a note to the local knowledge base."""
+    """Add a note to your team's knowledge base."""
     content: str
     if body is not None:
         content = body
@@ -79,13 +79,7 @@ def add(title: str, body: str | None, allow_empty: bool, tags: Iterable[str]) ->
     if note is not None:
         console.print(render_note_panel(note))
 
-    status_lines = ["[success]Saved locally[/success]"]
-    if config.get("supabase_url") and config.get("supabase_key"):
-        status_lines.append("[success]Supabase sync configured[/success]")
-    else:
-        status_lines.append(
-            "[warning]Sync not configured. Run `notes auth --supabase-url ... --supabase-key ...`[/warning]"
-        )
+    status_lines = ["[success]Saved to Supabase[/success]"]
 
     context_bits = []
     if config.get("team_id"):

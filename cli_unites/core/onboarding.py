@@ -169,13 +169,7 @@ def _capture_first_note(manager: ConfigManager, team_id: str | None) -> Note:
     print_success("First note captured!")
     console.print(render_note_panel(note))
 
-    status_lines = ["[success]Saved locally[/success]"]
-    if manager.get("supabase_url") and manager.get("supabase_key"):
-        status_lines.append("[success]Supabase sync configured[/success]")
-    else:
-        status_lines.append(
-            "[warning]Sync not configured. Run `notes auth --supabase-url ... --supabase-key ...`"
-        )
+    status_lines = ["[success]Saved to Supabase[/success]"]
 
     context_lines = []
     if team_id:

@@ -1,63 +1,37 @@
-"""Local SQLite persistence for notes."""
+"""Supabase persistence for notes."""
 from __future__ import annotations
 
 import os
-import sqlite3
+import json
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Generator, Iterable, List, Optional
+from typing import Any, Dict, Generator, Iterable, List, Optional
 from uuid import uuid4
 
-from .config import _resolve_config_dir
+from dotenv import load_dotenv
+from supabase import create_client, Client
+from cli_unites.core.match_notes import match_notes
 
-DB_FILENAME = "notes.db"
-
-
-def _resolve_db_path(explicit: Optional[Path] = None) -> Path:
-    if explicit is not None:
-        return explicit
-    override = os.environ.get("CLI_UNITES_DB_PATH")
-    if override:
-        return Path(override).expanduser()
-    return _resolve_config_dir() / DB_FILENAME
+load_dotenv()
 
 
 class Database:
-    """Thin wrapper around an SQLite connection with schema helpers."""
+    """Thin wrapper around Supabase client for notes operations."""
 
-    def __init__(self, db_path: Optional[Path] = None) -> None:
-        self.db_path = _resolve_db_path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(self.db_path)
-        self.conn.row_factory = sqlite3.Row
-        self.ensure_schema()
+    def __init__(self, supabase_client: Optional[Client] = None) -> None:
+        if supabase_client is not None:
+            self.client = supabase_client
+        else:
+            url = os.getenv("SUPABASE_URL")
+            key = os.getenv("SUPABASE_KEY")
+            if not url or not key:
+                raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in environment")
+            self.client = create_client(url, key)
 
-    def ensure_schema(self) -> None:
-        self.conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS notes (
-                id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
-                body TEXT NOT NULL,
-                tags TEXT,
-                created_at TEXT NOT NULL,
-                git_commit TEXT,
-                git_branch TEXT,
-                project_path TEXT,
-                team_id TEXT
-            )
-        """
-        )
-        self.conn.commit()
-        self._ensure_column("team_id", "TEXT")
-
-    def _ensure_column(self, column: str, definition: str) -> None:
-        cursor = self.conn.execute("PRAGMA table_info(notes)")
-        existing = {row[1] for row in cursor.fetchall()}
-        if column not in existing:
-            self.conn.execute(f"ALTER TABLE notes ADD COLUMN {column} {definition}")
-            self.conn.commit()
+        # Get current user ID (you may need to implement auth first)
+        # For now, we'll use a placeholder or get from auth
+        self.user_id = os.getenv("USER_ID")  # TODO: Get from actual auth
 
     def add_note(
         self,
@@ -70,78 +44,187 @@ class Database:
         team_id: Optional[str] = None,
     ) -> str:
         note_id = str(uuid4())
-        tag_string = ",".join(sorted({t.strip() for t in tags if t.strip()})) if tags else None
-        self.conn.execute(
-            """
-            INSERT INTO notes (id, title, body, tags, created_at, git_commit, git_branch, project_path, team_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            note_id,
-            title,
-            body,
-            tag_string,
-            datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            git_commit,
-            git_branch,
-            project_path,
-            team_id,
-        ),
-        )
-        self.conn.commit()
+
+        # First, ensure project exists if project_path is provided
+        project_id = None
+        if project_path:
+            project_id = self._ensure_project(project_path, team_id)
+
+        # Insert the note
+        note_data = {
+            "id": note_id,
+            "title": title,
+            "body": body,
+            "user_id": self.user_id,
+            "project_id": project_id,
+        }
+
+        response = self.client.table("notes").insert(note_data).execute()
+
+        # Handle tags if provided
+        if tags:
+            self._add_tags_to_note(note_id, tags)
+
         return note_id
 
-    def list_notes(
-        self,
-        limit: Optional[int] = None,
-        tag: Optional[str] = None,
-        team_id: Optional[str] = None,
-    ) -> List[Dict[str, str]]:
-        sql = "SELECT * FROM notes"
-        params: List[object] = []
+    def _ensure_project(self, project_path: str, team_id: Optional[str] = None) -> str:
+        """Ensure project exists, create if not. Returns project_id."""
+        # Check if project exists
+        response = self.client.table("projects").select("id").eq("absolute_path", project_path).execute()
+
+        if response.data:
+            return response.data[0]["id"]
+
+        # Create new project and associate with team if provided
+        project_id = str(uuid4())
+        project_data = {
+            "id": project_id,
+            "name": project_path.split("/")[-1],  # Use last part of path as name
+            "absolute_path": project_path,
+        }
+        
+        # If team_id is provided, try to find or create the team
+        if team_id:
+            team_uuid = self._ensure_team(team_id)
+            project_data["team_id"] = team_uuid
+        
+        self.client.table("projects").insert(project_data).execute()
+        return project_id
+
+    def _ensure_team(self, team_name: str) -> str:
+        """Ensure team exists, create if not. Returns team UUID."""
+        # Check if team exists by name
+        response = self.client.table("teams").select("id").eq("name", team_name).execute()
+        
+        if response.data:
+            return response.data[0]["id"]
+        
+        # Create new team
+        team_id = str(uuid4())
+        self.client.table("teams").insert({
+            "id": team_id,
+            "name": team_name
+        }).execute()
+        return team_id
+
+    def _add_tags_to_note(self, note_id: str, tags: Iterable[str]) -> None:
+        """Add tags to a note."""
+        tag_list = sorted({t.strip() for t in tags if t.strip()})
+
+        for tag_name in tag_list:
+            # Ensure tag exists
+            response = self.client.table("tags").select("id").eq("name", tag_name).execute()
+
+            if response.data:
+                tag_id = response.data[0]["id"]
+            else:
+                # Create new tag
+                tag_id = str(uuid4())
+                self.client.table("tags").insert({"id": tag_id, "name": tag_name}).execute()
+
+            # Link tag to note
+            self.client.table("notes_tags").insert({
+                "note_id": note_id,
+                "tag_id": tag_id
+            }).execute()
+
+    def list_notes(self, limit: Optional[int] = None, tag: Optional[str] = None, team_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        # If team_id is provided, we need to join with projects to filter by team
+        if team_id:
+            # First get the team UUID
+            team_response = self.client.table("teams").select("id").eq("name", team_id).execute()
+            if not team_response.data:
+                # Team doesn't exist, return empty results
+                return []
+            team_uuid = team_response.data[0]["id"]
+            
+            # Get all projects for this team
+            projects_response = self.client.table("projects").select("id").eq("team_id", team_uuid).execute()
+            if not projects_response.data:
+                # No projects for this team, return empty results
+                return []
+            project_ids = [p["id"] for p in projects_response.data]
+            
+            # Now query notes that belong to these projects
+            query = self.client.table("notes").select("*").in_("project_id", project_ids)
+        else:
+            query = self.client.table("notes").select("*")
+
         if tag:
-            sql += " WHERE tags LIKE ?"
-            params.append(f"%{tag}%")
-        if team_id:
-            sql += " AND" if "WHERE" in sql else " WHERE"
-            sql += " team_id = ?"
-            params.append(team_id)
-        sql += " ORDER BY datetime(created_at) DESC"
+            # Join with tags to filter
+            query = query.eq("notes_tags.tags.name", tag)
+
+        query = query.order("created_at", desc=True)
+
         if limit:
-            sql += " LIMIT ?"
-            params.append(limit)
-        cursor = self.conn.execute(sql, params)
-        return [dict(row) for row in cursor.fetchall()]
+            query = query.limit(limit)
 
-    def get_note(self, note_id: str) -> Optional[Dict[str, str]]:
-        cursor = self.conn.execute("SELECT * FROM notes WHERE id = ?", (note_id,))
-        row = cursor.fetchone()
-        return dict(row) if row else None
+        response = query.execute()
+        return response.data
 
-    def search_notes(self, query: str, team_id: Optional[str] = None) -> List[Dict[str, str]]:
-        pattern = f"%{query}%"
-        params: List[object] = [pattern, pattern, pattern]
-        team_clause = ""
+    def get_note(self, note_id: str) -> Optional[Dict[str, Any]]:
+        response = self.client.table("notes").select("*").eq("id", note_id).execute()
+        return response.data[0] if response.data else None
+
+    def search_notes(self, query: str, team_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        # Get project IDs if team_id is provided
+        project_ids = None
         if team_id:
-            team_clause = " AND team_id = ?"
-            params.append(team_id)
-        cursor = self.conn.execute(
-            f"""
-            SELECT * FROM notes
-            WHERE (title LIKE ? OR body LIKE ? OR IFNULL(tags, '') LIKE ?){team_clause}
-            ORDER BY datetime(created_at) DESC
-            """,
-            params,
-        )
-        return [dict(row) for row in cursor.fetchall()]
+            # First get the team UUID
+            team_response = self.client.table("teams").select("id").eq("name", team_id).execute()
+            if not team_response.data:
+                # Team doesn't exist, return empty results
+                return []
+            team_uuid = team_response.data[0]["id"]
+            
+            # Get all projects for this team
+            projects_response = self.client.table("projects").select("id").eq("team_id", team_uuid).execute()
+            if not projects_response.data:
+                # No projects for this team, return empty results
+                return []
+            project_ids = [p["id"] for p in projects_response.data]
+        
+        # Full-text search using PostgreSQL's tsvector
+        body_query = self.client.table("notes").select("*").text_search("body_tsv", query)
+        if project_ids:
+            body_query = body_query.in_("project_id", project_ids)
+        response = body_query.order("created_at", desc=True).execute()
+
+        # Also search in title (case-insensitive)
+        title_query = self.client.table("notes").select("*").ilike("title", f"%{query}%")
+        if project_ids:
+            title_query = title_query.in_("project_id", project_ids)
+        title_results = title_query.order("created_at", desc=True).execute()
+
+        # Combine and deduplicate results
+        seen_ids = set()
+        combined = []
+        for item in response.data + title_results.data:
+            if item["id"] not in seen_ids:
+                seen_ids.add(item["id"])
+                combined.append(item)
+
+        return combined
+
+    def semantic_search(self, query: str, limit: int = 10, threshold: float = 0.3) -> List[Dict[str, Any]]:
+        """Perform semantic search using vector embeddings."""
+        import sys
+        import supabase
+
+        # Generate embedding for the query by calling the 'search-embed' edge function
+        response = self.client.functions.invoke("search-embed", invoke_options={'body': {'query': query}})
+        query_embedding = json.loads(response)['embedding']
+
+        return match_notes(self, query_embedding, limit=limit, threshold=threshold)
 
     def close(self) -> None:
-        self.conn.close()
+        # Supabase client doesn't need explicit closing
+        pass
 
 
 @contextmanager
-def get_connection(db_path: Optional[Path] = None) -> Generator[Database, None, None]:
-    db = Database(db_path)
+def get_connection(supabase_client: Optional[Client] = None) -> Generator[Database, None, None]:
+    db = Database(supabase_client)
     try:
         yield db
     finally:

@@ -18,6 +18,16 @@ def truncate_token(token: str | None, length: int = 12) -> str | None:
 @click.option("--supabase-url", help="Supabase project URL")
 @click.option("--supabase-key", help="Supabase service role key")
 @click.option(
+    "--supabase-realtime-url",
+    help="Override the Supabase Realtime websocket URL (defaults to derived wss endpoint)",
+)
+@click.option(
+    "--supabase-realtime-channel",
+    help="Default Realtime channel, e.g. realtime:public:messages (falls back to SUPABASE_REALTIME_CHANNEL)",
+)
+@click.option("--supabase-note-table", help="Supabase table name used for note updates (default notes)")
+@click.option("--supabase-message-table", help="Supabase table name used for direct messages (default messages)")
+@click.option(
     "--show", is_flag=True, help="Show the currently stored auth configuration"
 )
 def auth(
@@ -25,6 +35,10 @@ def auth(
     team_id: str | None,
     supabase_url: str | None,
     supabase_key: str | None,
+    supabase_realtime_url: str | None,
+    supabase_realtime_channel: str | None,
+    supabase_note_table: str | None,
+    supabase_message_table: str | None,
     show: bool,
 ) -> None:
     """Manage authentication details."""
@@ -39,6 +53,14 @@ def auth(
         updates["supabase_url"] = supabase_url
     if supabase_key:
         updates["supabase_key"] = supabase_key
+    if supabase_realtime_url:
+        updates["supabase_realtime_url"] = supabase_realtime_url
+    if supabase_realtime_channel:
+        updates["supabase_realtime_channel"] = supabase_realtime_channel
+    if supabase_note_table:
+        updates["supabase_note_table"] = supabase_note_table
+    if supabase_message_table:
+        updates["supabase_message_table"] = supabase_message_table
 
     if updates:
         manager.update(updates)
