@@ -13,10 +13,12 @@ dependencies = [
     "pytest>=8.4.2",
     "python-dotenv>=1.1.1",
     "supabase>=2.22.0",
+    "websockets>=12.0",
     "rich",
     "vecs>=0.4.5",
     "deno>=0.0.1",
     "openai>=2.3.0",
+    "rich-click"
 ]
 
 [build-system]
@@ -30,7 +32,7 @@ Issues = "https://github.com/fac-31/Pro0929-CLI-Unites/issues"
 CI = "https://github.com/fac-31/Pro0929-CLI-Unites/actions"
 
 [project.scripts]
-notes = "cli_unites.cli:cli"
+notes = "cli_unites.main:main"
 
 [project.optional-dependencies]
 test = ["pytest"]

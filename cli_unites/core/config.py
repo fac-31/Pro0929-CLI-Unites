@@ -5,20 +5,32 @@ single JSON document stored under the user's home directory. The location can be
 overridden via the `CLI_UNITES_CONFIG_DIR` environment variable which makes it
 straightforward to isolate state during tests.
 """
+
 from __future__ import annotations
 
 import json
 import os
 from pathlib import Path
 from typing import Any, Dict, Optional
+from dotenv import load_dotenv, find_dotenv
+
+# Load .env file early when this module is imported
+load_dotenv(find_dotenv(usecwd=True))
 
 CONFIG_DIR_ENV = "CLI_UNITES_CONFIG_DIR"
 CONFIG_FILENAME = "config.json"
 DEFAULT_CONFIG: Dict[str, Any] = {
     "auth_token": None,
+    "refresh_token": None,
     "team_id": None,
-    "supabase_url": None,
-    "supabase_key": None,
+    "supabase_url": os.getenv("SUPABASE_URL"),
+    "supabase_key": os.getenv("SUPABASE_KEY"),
+    "supabase_realtime_url": os.getenv("SUPABASE_REALTIME_URL"),
+    "supabase_realtime_channel": os.getenv("SUPABASE_REALTIME_CHANNEL") or "realtime:public:notes",
+    "supabase_note_table": os.getenv("SUPABASE_NOTE_TABLE") or "notes",
+    "supabase_message_table": os.getenv("SUPABASE_MESSAGE_TABLE") or "messages",
+    "team_history": [],
+    "first_run_completed": False,
 }
 
 
@@ -49,7 +61,13 @@ class ConfigManager:
         except json.JSONDecodeError:
             # Fall back to defaults when the config is corrupt rather than crash
             data = DEFAULT_CONFIG.copy()
-        self._config = {**DEFAULT_CONFIG, **data}
+        # Merge configs, but for null values in data, use DEFAULT_CONFIG values
+        # This ensures env vars are used as fallback when config file has nulls
+        merged = DEFAULT_CONFIG.copy()
+        for key, value in data.items():
+            if value is not None:
+                merged[key] = value
+        self._config = merged
         return self._config
 
     def save(self) -> None:
@@ -58,10 +76,31 @@ class ConfigManager:
             json.dump(self._config, fp, indent=2, sort_keys=True)
 
     def get(self, key: str, default: Any = None) -> Any:
-        return self._config.get(key, default)
+        value = self._config.get(key, default)
+        # If value is None, check if there's an env var for Supabase settings
+        if value is None:
+            if key == "supabase_url":
+                value = os.getenv("SUPABASE_URL")
+            elif key == "supabase_key":
+                value = os.getenv("SUPABASE_KEY")
+            elif key == "supabase_realtime_url":
+                value = os.getenv("SUPABASE_REALTIME_URL")
+            elif key == "supabase_realtime_channel":
+                value = os.getenv("SUPABASE_REALTIME_CHANNEL") or "realtime:public:notes"
+            elif key == "supabase_note_table":
+                value = os.getenv("SUPABASE_NOTE_TABLE") or "notes"
+            elif key == "supabase_message_table":
+                value = os.getenv("SUPABASE_MESSAGE_TABLE") or "messages"
+        return value
 
     def set(self, key: str, value: Any) -> None:
         self._config[key] = value
+        if key == "team_id" and value:
+            history = list(self._config.get("team_history") or [])
+            if value in history:
+                history.remove(value)
+            history.insert(0, value)
+            self._config["team_history"] = history[:5]
         self.save()
 
     def update(self, updates: Dict[str, Any]) -> None:
@@ -82,7 +121,9 @@ def save_config(config: Dict[str, Any], config_dir: Optional[Path] = None) -> No
     manager.save()
 
 
-def update_config(updates: Dict[str, Any], config_dir: Optional[Path] = None) -> Dict[str, Any]:
+def update_config(
+    updates: Dict[str, Any], config_dir: Optional[Path] = None
+) -> Dict[str, Any]:
     manager = ConfigManager(config_dir=config_dir)
     manager.update(updates)
     return manager.as_dict()

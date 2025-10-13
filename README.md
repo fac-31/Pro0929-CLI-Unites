@@ -1,23 +1,289 @@
 # cli-unites
-unite your team with query-able project notes
+
+[![PyPI](https://img.shields.io/pypi/v/cli-unites.svg)](https://pypi.org/project/cli-unites/)
+[![Changelog](https://img.shields.io/github/v/release/fac-31/Pro0929-CLI-Unites?include_prereleases&label=changelog)](https://github.com/fac-31/Pro0929-CLI-Unites/releases)
+[![Tests](https://github.com/fac-31/Pro0929-CLI-Unites/actions/workflows/test.yml/badge.svg)](https://github.com/fac-31/Pro0929-CLI-Unites/actions/workflows/test.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/fac-31/Pro0929-CLI-Unites/blob/master/LICENSE)
+
+**Unite your team with query-able project notes**
+
+A command-line tool for capturing, organizing, and searching project knowledge across your team. Built with Supabase for cloud-based collaboration and automatic git context capture.
+
+## Features
+
+- 📝 **Add Notes**: Capture project learnings with automatic git context
+- 🔍 **Search**: Find notes by keyword across title, body, and tags
+- 📋 **List & Filter**: View notes with tag filtering and team isolation
+- 👥 **Team Management**: Organize notes by team with configurable defaults
+- 🔐 **Supabase Integration**: Cloud-based storage with PostgreSQL and vector search
+- 📊 **Activity Feed**: See recent notes and team activity
+- 🎨 **Rich UI**: Beautiful terminal output with Rich formatting
+
+## Installation
+
+### From PyPI (when published)
+```bash
+pip install cli-unites
+```
+
+### From Source
+```bash
+git clone https://github.com/fac-31/Pro0929-CLI-Unites.git
+cd Pro0929-CLI-Unites
+uv venv
+source .venv/bin/activate
+uv pip install -e '.[test]'
+
+# Fix for editable install issue (see Troubleshooting below)
+ln -sf $(pwd)/notes_wrapper.py .venv/bin/notes
+```
+
+## Quick Start
+
+1. **Add your first note**:
+   ```bash
+   notes add "Project Setup" --body "How to set up the development environment"
+   ```
+
+2. **Set your team**:
+   ```bash
+   notes team --set "my-team"
+   ```
+
+3. **Search for notes**:
+   ```bash
+   notes search "setup"
+   ```
+
+4. **List recent activity**:
+   ```bash
+   notes activity
+   ```
+
+## Commands
+
+### `notes add <title>`
+Add a new note to your knowledge base.
+
+**Options:**
+- `--body TEXT`: Note content (or read from stdin)
+- `--allow-empty`: Allow saving empty notes
+- `-t, --tag TEXT`: Add tags (can be used multiple times)
+
+**Examples:**
+```bash
+# Add with body
+notes add "Bug Fix" --body "Fixed the authentication issue" --tag bug --tag urgent
+
+# Add from stdin
+echo "Important meeting notes" | notes add "Team Meeting"
+
+# Interactive editor
+notes add "Design Decision"  # Opens your default editor
+```
+
+### `notes search <query>`
+Search notes by keyword across title, body, and tags.
+
+**Options:**
+- `--all-teams`: Search across all teams (not just current team)
+
+**Examples:**
+```bash
+notes search "authentication"
+notes search "bug" --all-teams
+```
+
+### `notes list`
+List stored notes with optional filtering.
+
+**Options:**
+- `-t, --tag TEXT`: Filter by tag
+- `-n, --limit INT`: Limit number of results
+- `--team TEXT`: Show notes for specific team
+
+**Examples:**
+```bash
+notes list --tag important
+notes list --limit 10
+notes list --team "frontend-team"
+```
+
+### `notes activity`
+Show recent notes for quick overview.
+
+**Options:**
+- `--team TEXT`: Show activity for specific team
+- `-n, --limit INT`: Number of notes to show (default: 5)
+
+### `notes team`
+Manage team configuration.
+
+**Options:**
+- `--set TEXT`: Set default team ID
+- `--recent`: Show recently used team IDs
+
+**Examples:**
+```bash
+notes team --set "my-team"
+notes team --recent
+notes team  # Show current team
+```
+
+### `notes auth`
+Configure authentication and sync settings.
+
+**Options:**
+- `--token TEXT`: CLI auth token
+- `--team-id TEXT`: Default team identifier
+- `--supabase-url TEXT`: Supabase project URL
+- `--supabase-key TEXT`: Supabase service role key
+- `--show`: Show current auth configuration
+
+## Data Storage
+
+- **Supabase Database**: All notes are stored in your Supabase PostgreSQL database
+- **Git Integration**: Automatically captures commit hash, branch, and project path
+- **Team Isolation**: Notes can be organized by team with configurable defaults
+- **Cloud-First**: Requires Supabase connection for all operations
+
+## Configuration
+
+Configuration is stored in `~/.cli-unites/config.json`. Key settings:
+
+- `team_id`: Default team for new notes
+- `supabase_url` & `supabase_key`: Required for database connection
+- `first_run_completed`: Onboarding completion flag
+
+## Environment Variables
+
+- `SUPABASE_URL`: Your Supabase project URL (required)
+- `SUPABASE_KEY`: Your Supabase service role key (required)
+- `USER_ID`: User ID for note attribution
+- `CLI_UNITES_DISABLE_GIT`: Set to "1" to disable git context capture
+- `CLI_UNITES_SKIP_ONBOARDING`: Set to "1" to skip first-run setup
 
 ## Development
 
-To contribute to this tool, first checkout the code. Then create a new virtual environment using `uv`:
+### Setup
 ```bash
+# Clone and setup
+git clone https://github.com/fac-31/Pro0929-CLI-Unites.git
+cd Pro0929-CLI-Unites
+
+# Create virtual environment with uv
 uv venv
 source .venv/bin/activate
+
+# Install dependencies
+uv pip install -e '.[test]'
 ```
-Now install the dependencies and test dependencies:
+
+### Running Tests
+```bash
+python -m pytest
+```
+
+### Sync Dependencies
+```bash
+uv sync
+```
+
+### Project Structure
+```
+cli_unites/
+├── commands/          # CLI command implementations
+├── core/             # Core functionality (db, config, git, etc.)
+├── models/           # Data models
+└── cli.py           # Main CLI entry point
+```
+
+
+## Development Notes
+
+### Re-running the Onboarding Tour
+
+To reset the onboarding flag and see the guided tour again:
+
+```bash
+source .venv/bin/activate
+python - <<'PY'
+from cli_unites.core.config import ConfigManager
+manager = ConfigManager()
+current = manager.get("first_run_completed")
+manager.set("first_run_completed", not current)
+print(f"Onboarding flag toggled to: {not current}")
+PY
+```
+
+This will reset the first-run experience, allowing you to see the interactive onboarding flow again.
+
+
+## Troubleshooting
+
+### "ModuleNotFoundError: No module named 'cli_unites'" Error
+
+This is a known issue with editable installs using setuptools entry points. The generated entry point script doesn't properly include the current directory in Python's module search path.
+
+**Symptoms:**
+- `notes --help` fails with `ModuleNotFoundError: No module named 'cli_unites'`
+- The error persists even after successful package installation
+
+**Solution:**
+The project includes a wrapper script (`notes_wrapper.py`) that fixes this issue. After installing the package, create a symlink to replace the broken entry point:
+
+```bash
+# After running: uv pip install -e '.[test]'
+ln -sf $(pwd)/notes_wrapper.py .venv/bin/notes
+```
+
+**If you reinstall the package:**
+Every time you run `uv pip install -e .` or `uv pip install -e '.[test]'`, you'll need to recreate the symlink as it gets overwritten:
+
+```bash
+uv pip install -e '.[test]'
+ln -sf $(pwd)/notes_wrapper.py .venv/bin/notes
+```
+
+**Alternative workaround:**
+You can also run the CLI directly without the entry point:
+```bash
+python -m cli_unites.cli --help
+```
+
+### Virtual Environment Not Activated
+
+Make sure your virtual environment is activated before running commands:
+```bash
+source .venv/bin/activate  # On Unix/macOS
+# or
+.venv\Scripts\activate     # On Windows
+```
+
+### Missing Dependencies
+
+If you get import errors for dependencies like `rich_click`, make sure all dependencies are installed:
 ```bash
 uv pip install -e '.[test]'
 ```
-To run the tests:
-```bash
-'python -m pytest'
-```
 
-If you're working and need to re-sync dependencies etc - type 'uv sync'
+## Contributing
 
-To see  options, run notes --help
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Run the test suite
+6. Submit a pull request
+
+## License
+
+Apache 2.0 - see [LICENSE](LICENSE) for details.
+
+## Authors
+
+- Anna van Wingerden
+- Jaz Maslen  
+- Rich Couzens
+
 

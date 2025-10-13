@@ -16,6 +16,7 @@ class Note:
     git_commit: Optional[str] = None
     git_branch: Optional[str] = None
     project_path: Optional[str] = None
+    team_id: Optional[str] = None
 
     @classmethod
     def from_row(cls, row: dict) -> "Note":
@@ -37,6 +38,7 @@ class Note:
             git_commit=row.get("git_commit"),
             git_branch=row.get("git_branch"),
             project_path=row.get("project_path"),
+            team_id=row.get("team_id"),
         )
 
     def to_cli_output(self) -> str:
